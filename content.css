@@ -1,0 +1,49 @@
+.lucian-ai-reply-btn {
+  margin-left: 8px;
+  padding: 4px 9px;
+  border: 1px solid rgba(16, 185, 129, 0.55);
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #6ee7b7;
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 140ms ease-in-out;
+}
+
+.lucian-ai-reply-btn:hover {
+  background: rgba(16, 185, 129, 0.16);
+  transform: translateY(-1px);
+}
+
+.lucian-ai-reply-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.lucian-ai-draft-btn {
+  margin-right: 8px;
+  padding: 6px 10px;
+  border: 1px solid rgba(59, 130, 246, 0.55);
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #93c5fd;
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 140ms ease-in-out;
+}
+
+.lucian-ai-draft-btn:hover {
+  background: rgba(59, 130, 246, 0.16);
+  transform: translateY(-1px);
+}
+
+.lucian-ai-draft-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
