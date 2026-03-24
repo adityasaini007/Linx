@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Linx",
-  "description": "Personal AI reply assistant for X.com powered by Gemini and GLM.",
+  "description": "Personal AI reply assistant for LinkedIn and X powered by Gemini and GLM.",
   "version": "1.0.0",
   "permissions": [
     "storage",
@@ -11,6 +11,9 @@
   "host_permissions": [
     "https://x.com/*",
     "https://twitter.com/*",
+    "https://www.linkedin.com/*",
+    "https://linkedin.com/*",
+    "https://*.licdn.com/*",
     "https://generativelanguage.googleapis.com/*",
     "https://open.bigmodel.cn/*",
     "https://api.z.ai/*",
@@ -38,7 +41,9 @@
     {
       "matches": [
         "*://x.com/*",
-        "*://twitter.com/*"
+        "*://twitter.com/*",
+        "*://www.linkedin.com/*",
+        "*://linkedin.com/*"
       ],
       "js": [
         "content.js"

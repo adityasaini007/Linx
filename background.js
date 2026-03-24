@@ -3,6 +3,8 @@ const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/m
 const GLM_ENDPOINT = "https://api.z.ai/api/coding/paas/v4/chat/completions";
 const DEFAULT_TEMPERATURE = 0.7;
 const RATE_LIMIT_WINDOW_MS = 2000;
+const PROFILE_VERSION = 2;
+const MAX_SYSTEM_PROMPT_CHARS = 9000;
 
 let lastGenerateAt = 0;
 
@@ -28,6 +30,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === "GENERATE_POST_DRAFTS") {
     handleGeneratePostDrafts(message)
+      .then((payload) => sendResponse({ ok: true, data: payload }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "BUILD_SYSTEM_PROMPTS") {
+    handleBuildSystemPrompts(message)
       .then((payload) => sendResponse({ ok: true, data: payload }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
@@ -65,12 +74,12 @@ async function handleGenerateReplies(message) {
   const apiKey = getApiKeyForProvider(settings, replyModel.provider);
   ensureApiKey(apiKey, replyModel.provider);
 
-  const tweet = message?.tweet;
-  if (!tweet?.text?.trim()) {
+  const post = message?.post || message?.tweet;
+  if (!post?.text?.trim()) {
     throw new Error("Post text is missing.");
   }
 
-  const rawText = await generateForReplies(tweet, settings, replyModel, apiKey);
+  const rawText = await generateForReplies(post, settings, replyModel, apiKey);
   const replies = coerceStringArray(rawText, "replies");
 
   if (replies.length < 4) {
@@ -117,8 +126,53 @@ async function handleGeneratePostDrafts(message) {
   };
 }
 
-async function generateForReplies(tweet, settings, modelChoice, apiKey) {
-  const prompt = buildReplyPrompt(tweet, settings);
+async function handleBuildSystemPrompts(message) {
+  const stored = await getSettings();
+  const answers = sanitizeProfileAnswers(message?.answers || stored.profileAnswers);
+  const existingPrompts = sanitizeSystemPrompts(stored.systemPrompts);
+  const targetPlatform = message?.targetPlatform === "linkedin" || message?.targetPlatform === "x"
+    ? message.targetPlatform
+    : null;
+  const now = Date.now();
+
+  const nextPrompts = {
+    ...existingPrompts,
+    reply: { ...existingPrompts.reply },
+    draft: { ...existingPrompts.draft }
+  };
+
+  const platforms = targetPlatform ? [targetPlatform] : ["linkedin", "x"];
+  for (const platform of platforms) {
+    nextPrompts.reply[platform] = {
+      text: buildPersonalizedSystemPrompt({
+        platform,
+        mode: "reply",
+        answers,
+        customInstructions: stored.customInstructions
+      }),
+      isUserEdited: false,
+      lastGeneratedAt: now
+    };
+    nextPrompts.draft[platform] = {
+      text: buildPersonalizedSystemPrompt({
+        platform,
+        mode: "draft",
+        answers,
+        customInstructions: stored.customInstructions
+      }),
+      isUserEdited: false,
+      lastGeneratedAt: now
+    };
+  }
+
+  return {
+    profileAnswers: answers,
+    systemPrompts: nextPrompts
+  };
+}
+
+async function generateForReplies(post, settings, modelChoice, apiKey) {
+  const prompt = buildReplyPrompt(post, settings);
 
   if (modelChoice.provider === "glm") {
     const payload = buildGlmPayload(modelChoice.model, prompt.systemInstruction, prompt.userText, settings);
@@ -143,7 +197,7 @@ async function generateForReplies(tweet, settings, modelChoice, apiKey) {
     return extractGlmText(data);
   }
 
-  const payload = buildGeminiReplyPayload(modelChoice.model, tweet, prompt.systemInstruction, prompt.userText, settings);
+  const payload = buildGeminiReplyPayload(modelChoice.model, post, prompt.systemInstruction, prompt.userText, settings);
   const url = `${GEMINI_ENDPOINT_BASE}/${modelChoice.model}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const response = await fetchWithRetry(
     url,
@@ -209,41 +263,20 @@ async function generateForDrafts(brainDump, context, settings, modelChoice, apiK
   return extractGeminiText(data);
 }
 
-function buildReplyPrompt(tweet, settings) {
-  const userInstruction = settings.customInstructions?.trim()
-    ? `Additional custom instructions from Aditya:\n${settings.customInstructions.trim()}`
-    : "No additional custom instructions provided.";
-
-  const systemInstruction = [
-    "You are Linx, a reply strategist for Aditya (@AdityaSaini_44).",
-    "Aditya is 20 years old and building AI agent swarms at getlucian.com.",
-    "Topics and niche: AI agents, Tesla Optimus, SpaceX, robotics, and frontier technology.",
-    "Voice and tone requirements:",
-    "- insightful and concise",
-    "- builder energy",
-    "- slightly opinionated but genuine",
-    "- value-adding and optimistic",
-    "- natural, human, and specific (not polished corporate AI voice)",
-    "Rules:",
-    "- Never sound generic, cringy, or sycophantic",
-    "- Avoid hashtags and emojis unless explicitly required by user context",
-    "- Replies should feel human and specific to the post",
-    "- It is good to take a clear stance or opinion when relevant",
-    "- Do not end most replies with questions",
-    "- At most 1 of the 4 replies can end with a question",
-    "- Avoid open-ended filler like 'Thoughts?' or 'What do you think?'",
-    "- Produce exactly 4 distinct reply options with varied angles and lengths",
-    "- Include this mix: one direct opinion, one strategic insight, one concise punchy line, one nuanced take",
-    "- Keep each reply under 280 characters",
-    "Return JSON only, with no markdown and no extra commentary.",
-    "Use this exact format: {\"replies\":[\"...\",\"...\",\"...\",\"...\"]}",
-    userInstruction
-  ].join("\n");
+function buildReplyPrompt(post, settings) {
+  const platform = normalizePlatform(post?.platform);
+  const label = platformLabel(platform);
+  const systemInstruction = resolveSystemInstruction({
+    settings,
+    platform,
+    mode: "reply"
+  });
 
   const userText = [
-    `Post author: ${tweet.authorName || "Unknown"} (${tweet.authorHandle || "unknown"})`,
-    `Post text: ${tweet.text}`,
-    "Create 4 high-quality replies tailored to Aditya's style. Keep wording sharp and grounded."
+    `Platform: ${label}`,
+    `Post author: ${post.authorName || "Unknown"} (${post.authorHandle || "unknown"})`,
+    `Post text: ${post.text}`,
+    `Create 4 high-quality ${label} replies tailored to Aditya's style. Keep wording sharp and grounded.`
   ].join("\n");
 
   return {
@@ -252,14 +285,14 @@ function buildReplyPrompt(tweet, settings) {
   };
 }
 
-function buildGeminiReplyPayload(_model, tweet, systemInstruction, userText, settings) {
+function buildGeminiReplyPayload(_model, post, systemInstruction, userText, settings) {
   const parts = [
     {
       text: userText
     }
   ];
 
-  for (const image of tweet.images || []) {
+  for (const image of post.images || []) {
     if (image?.data && image?.mimeType) {
       parts.push({
         inline_data: {
@@ -283,32 +316,23 @@ function buildGeminiReplyPayload(_model, tweet, systemInstruction, userText, set
 }
 
 function buildDraftPrompt(brainDump, context, settings) {
-  const userInstruction = settings.customInstructions?.trim()
-    ? `Additional custom instructions from Aditya:\n${settings.customInstructions.trim()}`
-    : "No additional custom instructions provided.";
+  const platform = normalizePlatform(context?.platform);
+  const label = platformLabel(platform);
+  const systemInstruction = resolveSystemInstruction({
+    settings,
+    platform,
+    mode: "draft"
+  });
 
-  const systemInstruction = [
-    "You are Linx Draft AI, writing X posts for Aditya (@AdityaSaini_44).",
-    "Aditya is 20 years old and building AI agent swarms at getlucian.com.",
-    "Topics and niche: AI agents, Tesla Optimus, SpaceX, robotics, and frontier technology.",
-    "Writing goals:",
-    "- Turn rough notes into clear, human-sounding posts",
-    "- Keep each draft concise, specific, and opinionated when relevant",
-    "- Sound like a builder sharing real insight, not polished corporate copy",
-    "Rules:",
-    "- Produce exactly 4 distinct draft options",
-    "- Keep each draft <= 280 characters",
-    "- Provide this mix: one primary clear post + three alternate angles",
-    "- Avoid hashtags and emojis unless strongly relevant",
-    "- No markdown, no numbering, no extra commentary",
-    "Return JSON only, with this exact format: {\"drafts\":[\"...\",\"...\",\"...\",\"...\"]}",
-    userInstruction
-  ].join("\n");
-
-  const contextLine = context?.surface ? `Composer surface: ${context.surface}` : "Composer surface: unknown";
-  const userText = [contextLine, `Brain dump:\n${brainDump}`, "Rewrite this into 4 high-quality X post drafts."].join(
-    "\n\n"
-  );
+  const contextLines = [
+    `Platform: ${label}`,
+    context?.surface ? `Composer surface: ${context.surface}` : "Composer surface: unknown"
+  ];
+  const userText = [
+    contextLines.join("\n"),
+    `Brain dump:\n${brainDump}`,
+    `Rewrite this into 4 high-quality ${label} post drafts.`
+  ].join("\n\n");
 
   return {
     systemInstruction,
@@ -344,6 +368,140 @@ function buildGlmPayload(model, systemInstruction, userText, settings) {
     temperature: clampTemperature(settings.temperature),
     max_tokens: 700
   };
+}
+
+function normalizePlatform(rawPlatform) {
+  return rawPlatform === "linkedin" ? "linkedin" : "x";
+}
+
+function platformLabel(platform) {
+  return normalizePlatform(platform) === "linkedin" ? "LinkedIn" : "X";
+}
+
+function replyCharacterLimit(platform) {
+  return normalizePlatform(platform) === "linkedin" ? 500 : 280;
+}
+
+function draftCharacterLimit(platform) {
+  return normalizePlatform(platform) === "linkedin" ? 1200 : 280;
+}
+
+function platformSpecificReplyGuidance(platform) {
+  if (normalizePlatform(platform) === "linkedin") {
+    return "- For LinkedIn, sound sharp and human but slightly more professional than X.";
+  }
+  return "- For X, optimize for punch, brevity, and crisp phrasing.";
+}
+
+function platformSpecificDraftGuidance(platform) {
+  if (normalizePlatform(platform) === "linkedin") {
+    return "- For LinkedIn, a slightly longer and more explanatory structure is allowed, but keep it tight.";
+  }
+  return "- For X, each draft should feel compact enough to post without editing.";
+}
+
+function resolveSystemInstruction({ settings, platform, mode }) {
+  const normalizedPlatform = normalizePlatform(platform);
+  const normalizedMode = mode === "draft" ? "draft" : "reply";
+  const systemPrompts = sanitizeSystemPrompts(settings?.systemPrompts);
+  const custom = systemPrompts?.[normalizedMode]?.[normalizedPlatform]?.text;
+  const customText = String(custom || "").trim();
+  if (isValidSystemPrompt(customText)) {
+    return customText;
+  }
+  return buildPersonalizedSystemPrompt({
+    platform: normalizedPlatform,
+    mode: normalizedMode,
+    answers: settings?.profileAnswers,
+    customInstructions: settings?.customInstructions
+  });
+}
+
+function buildPersonalizedSystemPrompt({ platform, mode, answers, customInstructions }) {
+  const normalizedPlatform = normalizePlatform(platform);
+  const label = platformLabel(normalizedPlatform);
+  const normalizedMode = mode === "draft" ? "draft" : "reply";
+  const user = sanitizeProfileAnswers(answers);
+  const legacyInstructions = String(customInstructions || "").trim();
+
+  const identityBlock = [
+    `You are Linx ${normalizedMode === "reply" ? "Reply" : "Draft"} AI for ${user.displayName}.`,
+    `Platform: ${label}`,
+    `Creator role: ${user.role}`,
+    `Domain expertise: ${user.expertise}`,
+    `Audience: ${user.audience}`,
+    `Primary goals: ${user.goals}`,
+    `Tone profile: ${user.tone}`,
+    `Preferred CTA style: ${user.ctaPreference}`,
+    `Point of view: ${user.pointOfView}`,
+    `Signature phrases: ${user.signaturePhrases}`,
+    `Proof points to highlight: ${user.proofPoints}`,
+    `Avoid this style: ${user.forbiddenStyles}`,
+    `Priority topics: ${user.topics}`
+  ];
+
+  const platformBlock = normalizedPlatform === "linkedin"
+    ? [
+        "Platform-native style guidance (LinkedIn):",
+        "- Lead with a clear insight or lesson, then support it with practical context.",
+        "- Keep tone credible, direct, and useful for professionals.",
+        "- Slightly explanatory structure is welcome, but remove fluff.",
+        "- Prioritize clarity, specificity, and practical takeaways."
+      ]
+    : [
+        "Platform-native style guidance (X):",
+        "- Open with a sharp angle, conviction, or high-signal observation.",
+        "- Keep phrasing compact, punchy, and easy to scan quickly.",
+        "- Prefer short lines and strong wording over long explanation.",
+        "- Avoid filler, hedging, and generic motivational language."
+      ];
+
+  const modeBlock = normalizedMode === "reply"
+    ? [
+        "Task:",
+        "- Produce exactly 4 distinct reply options with varied angles and lengths.",
+        "- Mix: one direct opinion, one strategic insight, one concise punchy line, one nuanced take.",
+        "- Replies must be specific to the source post and add value.",
+        "- Avoid sounding generic, cringy, sycophantic, or overly corporate.",
+        "- Avoid hashtags and emojis unless strongly relevant to the source post.",
+        "- Do not end most replies with questions; at most 1 of 4 may end with a question.",
+        `- Keep each reply under ${replyCharacterLimit(normalizedPlatform)} characters.`,
+        platformSpecificReplyGuidance(normalizedPlatform),
+        "Return JSON only, with no markdown and no extra commentary.",
+        "Use this exact format: {\"replies\":[\"...\",\"...\",\"...\",\"...\"]}"
+      ]
+    : [
+        "Task:",
+        "- Rewrite the brain dump into exactly 4 distinct post draft options.",
+        "- Mix: one primary clear post plus three alternate angles.",
+        "- Keep drafts human, specific, and opinionated when relevant.",
+        "- Sound like a builder sharing real insight, not polished corporate copy.",
+        "- Avoid hashtags and emojis unless strongly relevant.",
+        `- Keep each draft <= ${draftCharacterLimit(normalizedPlatform)} characters.`,
+        platformSpecificDraftGuidance(normalizedPlatform),
+        "- No markdown, no numbering, no extra commentary.",
+        "Return JSON only, with this exact format: {\"drafts\":[\"...\",\"...\",\"...\",\"...\"]}"
+      ];
+
+  const lines = [
+    ...identityBlock,
+    ...platformBlock,
+    ...modeBlock
+  ];
+
+  if (legacyInstructions) {
+    lines.push(`Legacy custom instructions:\n${legacyInstructions}`);
+  }
+
+  return lines.join("\n");
+}
+
+function isValidSystemPrompt(text) {
+  if (!text || typeof text !== "string") {
+    return false;
+  }
+  const trimmed = text.trim();
+  return Boolean(trimmed) && trimmed.length <= MAX_SYSTEM_PROMPT_CHARS;
 }
 
 function extractGeminiText(data) {
@@ -619,19 +777,125 @@ function truncateMessage(text, maxChars) {
 }
 
 async function getSettings() {
-  const stored = await chrome.storage.sync.get({
-    apiKey: "",
-    geminiApiKey: "",
-    glmApiKey: "",
-    replyModel: DEFAULT_MODEL,
-    draftModel: DEFAULT_MODEL,
-    customInstructions: "",
-    temperature: DEFAULT_TEMPERATURE
-  });
+  const [stored, localStored] = await Promise.all([
+    chrome.storage.sync.get({
+      apiKey: "",
+      geminiApiKey: "",
+      glmApiKey: "",
+      replyModel: DEFAULT_MODEL,
+      draftModel: DEFAULT_MODEL,
+      customInstructions: "",
+      temperature: DEFAULT_TEMPERATURE,
+      profileVersion: 0,
+      onboardingCompleted: false,
+      onboardingStep: 0,
+      profileAnswers: getDefaultProfileAnswers(),
+      systemPrompts: getDefaultSystemPrompts()
+    }),
+    chrome.storage.local.get({
+      systemPrompts: getDefaultSystemPrompts()
+    })
+  ]);
+
+  const previousVersion = Number(stored.profileVersion || 0);
+  const needsMigration = previousVersion !== PROFILE_VERSION;
+
+  const normalized = {
+    ...stored,
+    profileVersion: PROFILE_VERSION,
+    onboardingCompleted: needsMigration ? false : Boolean(stored.onboardingCompleted),
+    onboardingStep: Number.isFinite(Number(stored.onboardingStep)) ? Number(stored.onboardingStep) : 0,
+    profileAnswers: sanitizeProfileAnswers(stored.profileAnswers),
+    systemPrompts: sanitizeSystemPrompts(localStored?.systemPrompts || stored.systemPrompts)
+  };
+
   if (!stored.geminiApiKey && stored.apiKey) {
-    stored.geminiApiKey = stored.apiKey;
+    normalized.geminiApiKey = stored.apiKey;
   }
-  return stored;
+
+  if (needsMigration) {
+    normalized.onboardingStep = 0;
+    await Promise.all([
+      chrome.storage.sync.set({
+        profileVersion: PROFILE_VERSION,
+        onboardingCompleted: false,
+        onboardingStep: 0,
+        profileAnswers: normalized.profileAnswers
+      }),
+      chrome.storage.local.set({
+        systemPrompts: getDefaultSystemPrompts()
+      })
+    ]);
+    normalized.systemPrompts = getDefaultSystemPrompts();
+  }
+
+  return normalized;
+}
+
+function getDefaultProfileAnswers() {
+  return {
+    displayName: "the user",
+    role: "builder creating products with AI",
+    expertise: "AI agents, automation, and emerging technology",
+    audience: "builders, founders, and curious professionals",
+    tone: "insightful, direct, practical, and human",
+    goals: "share original insights, spark useful conversation, and build credibility",
+    forbiddenStyles: "generic platitudes, cringe hype, and corporate jargon",
+    ctaPreference: "light and optional CTA, not forced in every post",
+    pointOfView: "builder-first perspective grounded in direct experience",
+    topics: "AI agents, robotics, frontier tech, product building",
+    proofPoints: "real examples, concrete observations, practical takeaways",
+    signaturePhrases: "none"
+  };
+}
+
+function getDefaultSystemPrompts() {
+  return {
+    reply: {
+      linkedin: { text: "", isUserEdited: false, lastGeneratedAt: 0 },
+      x: { text: "", isUserEdited: false, lastGeneratedAt: 0 }
+    },
+    draft: {
+      linkedin: { text: "", isUserEdited: false, lastGeneratedAt: 0 },
+      x: { text: "", isUserEdited: false, lastGeneratedAt: 0 }
+    }
+  };
+}
+
+function sanitizeProfileAnswers(raw) {
+  const defaults = getDefaultProfileAnswers();
+  const source = raw && typeof raw === "object" ? raw : {};
+  const normalized = {};
+  for (const [key, fallback] of Object.entries(defaults)) {
+    const value = typeof source[key] === "string" ? source[key].trim() : "";
+    normalized[key] = value || fallback;
+  }
+  return normalized;
+}
+
+function sanitizePromptEntry(rawEntry) {
+  const text = typeof rawEntry?.text === "string" ? rawEntry.text.trim() : "";
+  const isUserEdited = Boolean(rawEntry?.isUserEdited);
+  const lastGeneratedAt = Number(rawEntry?.lastGeneratedAt);
+  return {
+    text: text.length <= MAX_SYSTEM_PROMPT_CHARS ? text : "",
+    isUserEdited,
+    lastGeneratedAt: Number.isFinite(lastGeneratedAt) ? lastGeneratedAt : 0
+  };
+}
+
+function sanitizeSystemPrompts(raw) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  return {
+    reply: {
+      linkedin: sanitizePromptEntry(source?.reply?.linkedin),
+      x: sanitizePromptEntry(source?.reply?.x)
+    },
+    draft: {
+      linkedin: sanitizePromptEntry(source?.draft?.linkedin),
+      x: sanitizePromptEntry(source?.draft?.x)
+    }
+  };
 }
 
 function parseModelChoice(rawValue, fallbackValue) {

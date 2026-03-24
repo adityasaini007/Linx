@@ -13,53 +13,157 @@
         <h1>Settings</h1>
       </header>
 
-      <label class="field">
-        <span>Gemini API Key</span>
-        <input id="geminiApiKey" type="password" placeholder="AIza..." autocomplete="off" />
-      </label>
+      <section id="onboardingBanner" class="banner hidden">
+        <strong>Finish setup</strong>
+        <p>Complete onboarding to personalize LinkedIn and X system prompts. Generation still works with defaults.</p>
+        <button id="openOnboardingBtn" class="secondary-btn" type="button">Finish setup</button>
+      </section>
 
-      <label class="field">
-        <span>GLM API Key</span>
-        <input id="glmApiKey" type="password" placeholder="Your GLM key..." autocomplete="off" />
-      </label>
+      <section id="onboardingSection" class="card hidden">
+        <div class="card-head">
+          <h2>Onboarding</h2>
+          <span id="stepBadge" class="badge">Step 1/2</span>
+        </div>
 
-      <label class="field">
-        <span>Reply Model</span>
-        <select id="replyModel">
-          <option value="gemini:gemini-3-flash-preview">Gemini 3 Flash (Preview)</option>
-          <option value="gemini:gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite (Preview)</option>
-          <option value="gemini:gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
-          <option value="glm:glm-4.7-flash">GLM-4.7 Flash</option>
-          <option value="glm:glm-4.7">GLM-4.7</option>
-        </select>
-      </label>
+        <div id="coreStep">
+          <label class="field">
+            <span>Your name or brand</span>
+            <input id="displayName" type="text" placeholder="Jane Doe or Acme AI" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>What do you do?</span>
+            <textarea id="role" rows="2" placeholder="Founder building AI products..."></textarea>
+          </label>
+          <label class="field">
+            <span>Expertise</span>
+            <textarea id="expertise" rows="2" placeholder="AI agents, growth, developer tools..."></textarea>
+          </label>
+          <label class="field">
+            <span>Audience</span>
+            <textarea id="audience" rows="2" placeholder="Builders, operators, founders..."></textarea>
+          </label>
+          <label class="field">
+            <span>Tone</span>
+            <textarea id="tone" rows="2" placeholder="Direct, practical, opinionated..."></textarea>
+          </label>
+          <label class="field">
+            <span>Primary goals</span>
+            <textarea id="goals" rows="2" placeholder="Build authority, share insights, attract users..."></textarea>
+          </label>
+          <label class="field">
+            <span>What to avoid</span>
+            <textarea id="forbiddenStyles" rows="2" placeholder="No cringe hype, no generic platitudes..."></textarea>
+          </label>
+          <label class="field">
+            <span>CTA preference</span>
+            <textarea id="ctaPreference" rows="2" placeholder="Light CTA, no forced CTA..."></textarea>
+          </label>
+          <button id="saveCoreBtn" class="save-btn" type="button">Save core answers</button>
+        </div>
 
-      <label class="field">
-        <span>Post Draft Model</span>
-        <select id="draftModel">
-          <option value="gemini:gemini-3-flash-preview">Gemini 3 Flash (Preview)</option>
-          <option value="gemini:gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite (Preview)</option>
-          <option value="gemini:gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
-          <option value="glm:glm-4.7-flash">GLM-4.7 Flash</option>
-          <option value="glm:glm-4.7">GLM-4.7</option>
-        </select>
-      </label>
+        <div id="advancedStep" class="hidden">
+          <label class="field">
+            <span>Point of view</span>
+            <textarea id="pointOfView" rows="2" placeholder="Builder POV, first-principles, contrarian..."></textarea>
+          </label>
+          <label class="field">
+            <span>Priority topics</span>
+            <textarea id="topics" rows="2" placeholder="AI agents, robotics, product building..."></textarea>
+          </label>
+          <label class="field">
+            <span>Proof points to emphasize</span>
+            <textarea id="proofPoints" rows="2" placeholder="Shipped features, experiments, results..."></textarea>
+          </label>
+          <label class="field">
+            <span>Signature phrases (optional)</span>
+            <textarea id="signaturePhrases" rows="2" placeholder="Any words or phrases you often use..."></textarea>
+          </label>
+          <div class="row-btns">
+            <button id="skipAdvancedBtn" class="secondary-btn" type="button">Skip advanced and finish</button>
+            <button id="completeOnboardingBtn" class="save-btn" type="button">Complete onboarding</button>
+          </div>
+        </div>
+      </section>
 
-      <label class="field">
-        <span>Custom Instructions</span>
-        <textarea
-          id="customInstructions"
-          rows="5"
-          placeholder="Optional tweaks to your reply style..."
-        ></textarea>
-      </label>
+      <section class="card">
+        <div class="card-head">
+          <h2>Model and API</h2>
+          <button id="editOnboardingBtn" class="secondary-btn" type="button">Edit profile</button>
+        </div>
 
-      <label class="field">
-        <span>Temperature: <strong id="tempValue">0.7</strong></span>
-        <input id="temperature" type="range" min="0" max="1.5" step="0.1" value="0.7" />
-      </label>
+        <label class="field">
+          <span>Gemini API Key</span>
+          <input id="geminiApiKey" type="password" placeholder="AIza..." autocomplete="off" />
+        </label>
 
-      <button id="saveBtn" class="save-btn">Save</button>
+        <label class="field">
+          <span>GLM API Key</span>
+          <input id="glmApiKey" type="password" placeholder="Your GLM key..." autocomplete="off" />
+        </label>
+
+        <label class="field">
+          <span>Reply Model</span>
+          <select id="replyModel">
+            <option value="gemini:gemini-3-flash-preview">Gemini 3 Flash (Preview)</option>
+            <option value="gemini:gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite (Preview)</option>
+            <option value="gemini:gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
+            <option value="glm:glm-4.7-flash">GLM-4.7 Flash</option>
+            <option value="glm:glm-4.7">GLM-4.7</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Post Draft Model</span>
+          <select id="draftModel">
+            <option value="gemini:gemini-3-flash-preview">Gemini 3 Flash (Preview)</option>
+            <option value="gemini:gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite (Preview)</option>
+            <option value="gemini:gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
+            <option value="glm:glm-4.7-flash">GLM-4.7 Flash</option>
+            <option value="glm:glm-4.7">GLM-4.7</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Temperature: <strong id="tempValue">0.7</strong></span>
+          <input id="temperature" type="range" min="0" max="1.5" step="0.1" value="0.7" />
+        </label>
+
+        <button id="saveSettingsBtn" class="save-btn" type="button">Save model settings</button>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>System Prompts</h2>
+          <div class="row-btns compact">
+            <button id="regenLinkedInBtn" class="secondary-btn" type="button">Regenerate LinkedIn</button>
+            <button id="regenXBtn" class="secondary-btn" type="button">Regenerate X</button>
+            <button id="regenAllBtn" class="secondary-btn" type="button">Regenerate All</button>
+          </div>
+        </div>
+
+        <label class="field">
+          <span>Reply Prompt (LinkedIn)</span>
+          <textarea id="replyLinkedinPrompt" rows="6"></textarea>
+        </label>
+
+        <label class="field">
+          <span>Reply Prompt (X)</span>
+          <textarea id="replyXPrompt" rows="6"></textarea>
+        </label>
+
+        <label class="field">
+          <span>Draft Prompt (LinkedIn)</span>
+          <textarea id="draftLinkedinPrompt" rows="6"></textarea>
+        </label>
+
+        <label class="field">
+          <span>Draft Prompt (X)</span>
+          <textarea id="draftXPrompt" rows="6"></textarea>
+        </label>
+
+        <button id="savePromptsBtn" class="save-btn" type="button">Save prompt edits</button>
+      </section>
+
       <p id="status" class="status"></p>
     </main>
 

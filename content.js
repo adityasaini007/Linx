@@ -3,11 +3,11 @@ const COMPOSE_BUTTON_CLASS = "lucian-ai-draft-btn";
 const PROCESSED_ATTR = "data-lucian-processed";
 const COMPOSE_PROCESSED_ATTR = "data-lucian-compose-processed";
 const MODAL_HOST_ID = "lucian-reply-modal-host";
-const TAILWIND_CDN = "https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css";
+const PLATFORM = detectPlatform();
 
 const state = {
   mode: "reply",
-  currentTweet: null,
+  currentPost: null,
   replies: [],
   drafts: [],
   lastBrainDump: "",
@@ -43,16 +43,14 @@ function observeDom() {
 }
 
 function injectButtonsInScope(root) {
-  const tweets = root.matches?.('article[data-testid="tweet"]')
-    ? [root]
-    : Array.from(root.querySelectorAll?.('article[data-testid="tweet"]') || []);
+  const posts = findPostsInScope(root);
 
-  for (const article of tweets) {
-    if (article.getAttribute(PROCESSED_ATTR) === "true") {
+  for (const post of posts) {
+    if (post.getAttribute(PROCESSED_ATTR) === "true") {
       continue;
     }
 
-    const actionBar = findActionBar(article);
+    const actionBar = findActionBar(post);
     if (!actionBar) {
       continue;
     }
@@ -61,11 +59,11 @@ function injectButtonsInScope(root) {
     btn.type = "button";
     btn.className = BUTTON_CLASS;
     btn.textContent = "✦ AI Reply";
-    btn.title = "Generate AI replies";
-    btn.addEventListener("click", () => onAiReplyClick(article, btn));
+    btn.title = `Generate ${platformLabel()} replies`;
+    btn.addEventListener("click", () => onAiReplyClick(post, btn));
     actionBar.appendChild(btn);
 
-    article.setAttribute(PROCESSED_ATTR, "true");
+    post.setAttribute(PROCESSED_ATTR, "true");
   }
 }
 
@@ -93,7 +91,7 @@ function injectComposerButtonsInScope(root) {
     btn.type = "button";
     btn.className = COMPOSE_BUTTON_CLASS;
     btn.textContent = "✦ AI Draft";
-    btn.title = "Generate X post drafts from brain dump";
+    btn.title = `Generate ${platformLabel()} post drafts from brain dump`;
     btn.addEventListener("click", () => onAiDraftClick(postButton, btn));
 
     buttonSlot.insertBefore(btn, postButton);
@@ -102,6 +100,15 @@ function injectComposerButtonsInScope(root) {
 }
 
 function composerPostButtonSelector() {
+  if (isLinkedInPlatform()) {
+    return [
+      "button.share-actions__primary-action",
+      "button.share-box_actions__primary-action",
+      'button[aria-label*="Post"]',
+      'button[aria-label*="Create post"]'
+    ].join(", ");
+  }
+
   return '[data-testid="tweetButtonInline"], [data-testid="tweetButton"]';
 }
 
@@ -114,13 +121,25 @@ function isComposerPostButton(postButton) {
     .join(" ")
     .toLowerCase();
 
-  if (label.includes("reply")) {
+  if (label.includes("reply") || label.includes("comment") || label.includes("send")) {
     return false;
   }
+
+  if (isLinkedInPlatform()) {
+    if (label.includes("start a post")) {
+      return false;
+    }
+    return label.includes("post") || label.includes("create post");
+  }
+
   return label.includes("post") || label.includes("tweetbuttoninline");
 }
 
 function findComposerButtonSlot(postButton) {
+  if (isLinkedInPlatform()) {
+    return postButton.parentElement || postButton.closest(".share-actions, .share-box_actions, footer, form, div") || null;
+  }
+
   const directParent = postButton.parentElement;
   if (directParent) {
     return directParent;
@@ -128,14 +147,33 @@ function findComposerButtonSlot(postButton) {
   return postButton.closest('div[role="group"], div') || null;
 }
 
-function findActionBar(article) {
-  const selectors = [
-    'div[role="group"]',
-    '[data-testid="reply"]'
-  ];
+function findActionBar(post) {
+  if (isLinkedInPlatform()) {
+    const selectors = [
+      ".social-details-social-actions",
+      ".feed-shared-social-actions",
+      ".update-v2-social-activity"
+    ];
+
+    for (const selector of selectors) {
+      const node = post.querySelector(selector);
+      if (node instanceof HTMLElement) {
+        return node;
+      }
+    }
+
+    const commentButton = findLinkedInCommentButton(post);
+    if (commentButton) {
+      return commentButton.closest("div") || commentButton.parentElement || null;
+    }
+
+    return null;
+  }
+
+  const selectors = ['div[role="group"]', '[data-testid="reply"]'];
 
   for (const selector of selectors) {
-    const node = article.querySelector(selector);
+    const node = post.querySelector(selector);
     if (!node) {
       continue;
     }
@@ -147,28 +185,28 @@ function findActionBar(article) {
   return null;
 }
 
-async function onAiReplyClick(article, button) {
+async function onAiReplyClick(postElement, button) {
   button.disabled = true;
 
   try {
     state.mode = "reply";
-    const tweet = await extractTweetData(article);
-    state.currentTweet = tweet;
+    const post = await extractPostData(postElement);
+    state.currentPost = post;
 
     openModal();
     setPanelMode("reply");
     setLoading(true, "Generating replies...");
     setStatus("");
 
-    const images = await fetchTweetImages(tweet.imageUrls || []);
-    const payloadTweet = {
-      ...tweet,
+    const images = await fetchPostImages(post.imageUrls || []);
+    const payloadPost = {
+      ...post,
       images
     };
 
     const response = await sendRuntimeMessage({
       type: "GENERATE_REPLIES",
-      tweet: payloadTweet
+      post: payloadPost
     });
 
     state.replies = response.replies || [];
@@ -220,32 +258,33 @@ async function onAiDraftClick(postButton, button) {
   }
 }
 
-async function extractTweetData(article) {
-  const stableArticle = await resolveStableArticle(article);
+async function extractPostData(postElement) {
+  const stablePost = await resolveStablePost(postElement);
 
-  const text = extractText(stableArticle);
+  const text = extractText(stablePost);
   if (!text) {
     throw new Error("Could not read this post yet. Scroll a bit and try again.");
   }
 
-  const { authorName, authorHandle } = extractAuthor(stableArticle);
-  const imageUrls = extractImageUrls(stableArticle);
+  const { authorName, authorHandle } = extractAuthor(stablePost);
+  const imageUrls = extractImageUrls(stablePost);
 
   return {
     text,
     authorName,
     authorHandle,
-    imageUrls
+    imageUrls,
+    platform: PLATFORM
   };
 }
 
-async function resolveStableArticle(article) {
-  if (article?.isConnected) {
-    return article;
+async function resolveStablePost(postElement) {
+  if (postElement?.isConnected) {
+    return postElement;
   }
 
   for (let i = 0; i < 6; i += 1) {
-    const candidate = document.querySelector('article[data-testid="tweet"]');
+    const candidate = findPostsInScope(document)[0];
     if (candidate) {
       return candidate;
     }
@@ -255,25 +294,60 @@ async function resolveStableArticle(article) {
   throw new Error("Could not locate the post container.");
 }
 
-function extractText(article) {
-  const selectors = [
-    '[data-testid="tweetText"]',
-    'div[lang]',
-    '[data-testid="tweet"] div[dir="auto"]'
-  ];
+function extractText(post) {
+  const selectors = isLinkedInPlatform()
+    ? [
+        ".update-components-text",
+        ".feed-shared-update-v2__description-wrapper",
+        ".feed-shared-inline-show-more-text",
+        '[data-test-id="main-feed-activity-card__commentary"]'
+      ]
+    : ['[data-testid="tweetText"]', "div[lang]", '[data-testid="tweet"] div[dir="auto"]'];
 
   for (const selector of selectors) {
-    const nodes = Array.from(article.querySelectorAll(selector));
-    const text = nodes.map((node) => node.innerText?.trim() || "").filter(Boolean).join("\n").trim();
+    const nodes = Array.from(post.querySelectorAll(selector));
+    const text = nodes
+      .map((node) => cleanExtractedText(node.innerText || node.textContent || ""))
+      .filter(Boolean)
+      .join("\n")
+      .trim();
     if (text) {
       return text;
     }
   }
+
+  if (isLinkedInPlatform()) {
+    const fallback = cleanExtractedText(
+      Array.from(post.querySelectorAll("span, div, p"))
+        .map((node) => node.textContent || "")
+        .join("\n")
+    );
+    return fallback;
+  }
+
   return "";
 }
 
-function extractAuthor(article) {
-  const userNode = article.querySelector('[data-testid="User-Name"]');
+function extractAuthor(post) {
+  if (isLinkedInPlatform()) {
+    const userNode =
+      post.querySelector(".update-components-actor__title") ||
+      post.querySelector(".feed-shared-actor__name") ||
+      post.querySelector('a[href*="/in/"]');
+
+    const rawText = cleanExtractedText(userNode?.textContent || "");
+    const authorName = rawText.split("\n")[0]?.trim() || "Unknown";
+    const profileLink = userNode?.closest("a") || post.querySelector('a[href*="/in/"]');
+    const href = profileLink?.getAttribute("href") || "";
+    const handle = extractLinkedInHandle(href, authorName);
+
+    return {
+      authorName,
+      authorHandle: handle
+    };
+  }
+
+  const userNode = post.querySelector('[data-testid="User-Name"]');
   if (userNode) {
     const rawText = userNode.innerText || "";
     const lines = rawText.split("\n").map((item) => item.trim()).filter(Boolean);
@@ -285,7 +359,7 @@ function extractAuthor(article) {
     };
   }
 
-  const links = Array.from(article.querySelectorAll('a[role="link"]'));
+  const links = Array.from(post.querySelectorAll('a[role="link"]'));
   const handleLink = links.find((a) => a.getAttribute("href")?.match(/^\/[^/]+$/));
   const handle = handleLink?.getAttribute("href")?.replace("/", "@") || "@unknown";
 
@@ -295,18 +369,22 @@ function extractAuthor(article) {
   };
 }
 
-function extractImageUrls(article) {
+function extractImageUrls(post) {
   const urls = new Set();
-  const selectors = [
-    '[data-testid="tweetPhoto"] img',
-    'img[src*="pbs.twimg.com/media"]'
-  ];
+  const selectors = isLinkedInPlatform()
+    ? [
+        ".update-components-image img",
+        ".update-components-article__image img",
+        ".feed-shared-image__image",
+        'img[src*="media.licdn.com"]'
+      ]
+    : ['[data-testid="tweetPhoto"] img', 'img[src*="pbs.twimg.com/media"]'];
 
   for (const selector of selectors) {
-    const images = Array.from(article.querySelectorAll(selector));
+    const images = Array.from(post.querySelectorAll(selector));
     for (const img of images) {
       const src = img.getAttribute("src") || "";
-      if (!src || src.includes("profile_images") || src.includes("emoji")) {
+      if (!src || shouldSkipImage(img, src)) {
         continue;
       }
       urls.add(normalizeImageUrl(src));
@@ -334,7 +412,7 @@ function normalizeImageUrl(src) {
   }
 }
 
-async function fetchTweetImages(imageUrls) {
+async function fetchPostImages(imageUrls) {
   const images = [];
   for (const url of imageUrls.slice(0, 2)) {
     try {
@@ -347,6 +425,114 @@ async function fetchTweetImages(imageUrls) {
   return images;
 }
 
+function findPostsInScope(root) {
+  const selectors = isLinkedInPlatform()
+    ? [
+        "div.feed-shared-update-v2",
+        "div[data-urn^='urn:li:activity:']",
+        "div[data-id^='urn:li:activity:']"
+      ]
+    : ['article[data-testid="tweet"]'];
+
+  const posts = dedupeElements(queryMatchingElements(root, selectors)).filter((node) => node instanceof HTMLElement);
+  if (!isLinkedInPlatform()) {
+    return posts;
+  }
+
+  return posts.filter((candidate) => !posts.some((other) => other !== candidate && other.contains(candidate)));
+}
+
+function queryMatchingElements(root, selectors) {
+  const nodes = [];
+  if (!(root instanceof Element || root instanceof Document)) {
+    return nodes;
+  }
+
+  for (const selector of selectors) {
+    if (root instanceof Element && root.matches(selector)) {
+      nodes.push(root);
+    }
+    for (const node of root.querySelectorAll(selector)) {
+      if (node instanceof HTMLElement) {
+        nodes.push(node);
+      }
+    }
+  }
+
+  return nodes;
+}
+
+function detectPlatform() {
+  return window.location.hostname.includes("linkedin.com") ? "linkedin" : "x";
+}
+
+function isLinkedInPlatform() {
+  return PLATFORM === "linkedin";
+}
+
+function platformLabel(platform = PLATFORM) {
+  return platform === "linkedin" ? "LinkedIn" : "X";
+}
+
+function cleanExtractedText(text) {
+  return String(text || "")
+    .replace(/\s+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+function extractLinkedInHandle(href, authorName) {
+  try {
+    const url = new URL(href, window.location.origin);
+    const parts = url.pathname.split("/").filter(Boolean);
+    const profileSlug = parts[1] || parts[0];
+    if (profileSlug) {
+      return `linkedin.com/${parts.join("/")}`;
+    }
+  } catch (_err) {
+    // Fall back below.
+  }
+
+  if (authorName && authorName !== "Unknown") {
+    return authorName;
+  }
+
+  return "linkedin.com";
+}
+
+function shouldSkipImage(img, src) {
+  if (src.includes("emoji") || src.includes("profile_images") || src.includes("profile-displayphoto")) {
+    return true;
+  }
+
+  if (isLinkedInPlatform()) {
+    const width = Number(img.getAttribute("width") || img.naturalWidth || 0);
+    const height = Number(img.getAttribute("height") || img.naturalHeight || 0);
+    if ((width && width < 120) || (height && height < 120)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function findLinkedInCommentButton(post) {
+  const buttons = Array.from(post.querySelectorAll("button"));
+  return (
+    buttons.find((button) => {
+      const text = [
+        button.textContent || "",
+        button.getAttribute("aria-label") || "",
+        button.getAttribute("data-control-name") || ""
+      ]
+        .join(" ")
+        .toLowerCase();
+      return text.includes("comment");
+    }) || null
+  );
+}
+
 function getModalRefs() {
   let host = document.getElementById(MODAL_HOST_ID);
   if (!host) {
@@ -354,11 +540,6 @@ function getModalRefs() {
     host.id = MODAL_HOST_ID;
     document.body.appendChild(host);
     const shadow = host.attachShadow({ mode: "open" });
-
-    const tailwindLink = document.createElement("link");
-    tailwindLink.rel = "stylesheet";
-    tailwindLink.href = TAILWIND_CDN;
-    shadow.appendChild(tailwindLink);
 
     const fallbackStyle = document.createElement("style");
     fallbackStyle.textContent = `
@@ -609,14 +790,14 @@ function setPanelMode(mode) {
 
   if (mode === "compose") {
     refs.kicker.textContent = "Linx Draft AI";
-    refs.title.textContent = "Turn brain dump into post drafts";
+    refs.title.textContent = `Turn brain dump into ${platformLabel()} post drafts`;
     refs.regenerate.textContent = "Regenerate drafts";
     refs.composeWrap.classList.add("open");
     return;
   }
 
   refs.kicker.textContent = "Linx";
-  refs.title.textContent = "Smart replies for this post";
+  refs.title.textContent = `Smart ${platformLabel()} replies for this post`;
   refs.regenerate.textContent = "Regenerate";
   refs.composeWrap.classList.remove("open");
 }
@@ -714,7 +895,7 @@ async function onRegenerateClick() {
     return;
   }
 
-  if (!state.currentTweet) {
+  if (!state.currentPost) {
     setStatus("Open a post and click AI Reply first.");
     return;
   }
@@ -723,11 +904,11 @@ async function onRegenerateClick() {
   setStatus("");
 
   try {
-    const images = await fetchTweetImages(state.currentTweet.imageUrls || []);
+    const images = await fetchPostImages(state.currentPost.imageUrls || []);
     const response = await sendRuntimeMessage({
       type: "GENERATE_REPLIES",
-      tweet: {
-        ...state.currentTweet,
+      post: {
+        ...state.currentPost,
         images
       }
     });
@@ -761,7 +942,8 @@ async function generateDrafts(brainDump) {
       type: "GENERATE_POST_DRAFTS",
       brainDump,
       context: {
-        surface: state.composeSurface
+        surface: state.composeSurface,
+        platform: PLATFORM
       }
     });
     state.drafts = response.drafts || [];
@@ -774,10 +956,10 @@ async function generateDrafts(brainDump) {
 }
 
 async function insertIntoReplyBox(replyText) {
-  const sourceArticle = findArticleForCurrentTweet();
-  const replyButton =
-    sourceArticle?.querySelector('[data-testid="reply"]') ||
-    document.querySelector('[data-testid="reply"]');
+  const sourcePost = findPostForCurrentSelection();
+  const replyButton = isLinkedInPlatform()
+    ? findLinkedInCommentButton(sourcePost || document)
+    : sourcePost?.querySelector('[data-testid="reply"]') || document.querySelector('[data-testid="reply"]');
 
   if (replyButton instanceof HTMLElement) {
     replyButton.click();
@@ -801,16 +983,13 @@ async function insertIntoComposeBox(draftText) {
   return setEditableText(box, draftText);
 }
 
-function findArticleForCurrentTweet() {
-  if (!state.currentTweet?.text) {
+function findCurrentPostElement() {
+  if (!state.currentPost?.text) {
     return null;
   }
 
-  const articles = Array.from(document.querySelectorAll('article[data-testid="tweet"]'));
-  return (
-    articles.find((article) => extractText(article).includes(state.currentTweet.text.slice(0, 40))) ||
-    null
-  );
+  const posts = findPostsInScope(document);
+  return posts.find((post) => extractText(post).includes(state.currentPost.text.slice(0, 40))) || null;
 }
 
 async function resolveComposerFromPostButton(postButton) {
@@ -879,6 +1058,14 @@ function pickBestReplyBox(candidates) {
   const withReplyContext = visible.find((el) => {
     const container = el.closest("article, div[role='group'], div");
     const text = container?.innerText?.toLowerCase() || "";
+    if (isLinkedInPlatform()) {
+      return (
+        text.includes("add a comment") ||
+        text.includes("comment as") ||
+        text.includes("reply to comment") ||
+        text.includes("leave your thoughts")
+      );
+    }
     return text.includes("post your reply") || text.includes("replying to");
   });
 
@@ -916,16 +1103,23 @@ function pickBestComposeBox(candidates) {
 }
 
 function getComposerTextboxes(root) {
-  const selectors = [
-    '[data-testid="tweetTextarea_0"]',
-    'div[role="textbox"][contenteditable="true"]',
-    '.public-DraftEditor-content[contenteditable="true"]'
-  ];
+  const selectors = isLinkedInPlatform()
+    ? [
+        'div[role="textbox"][contenteditable="true"]',
+        'div[contenteditable="true"][data-placeholder]',
+        '.ql-editor[contenteditable="true"]',
+        '.mentions-texteditor__contenteditable[contenteditable="true"]'
+      ]
+    : [
+        '[data-testid="tweetTextarea_0"]',
+        'div[role="textbox"][contenteditable="true"]',
+        '.public-DraftEditor-content[contenteditable="true"]'
+      ];
 
   const nodes = [];
   for (const selector of selectors) {
     for (const node of root.querySelectorAll(selector)) {
-      if (node instanceof HTMLElement) {
+      if (node instanceof HTMLElement && isComposeTextbox(node)) {
         nodes.push(node);
       }
     }
@@ -934,6 +1128,29 @@ function getComposerTextboxes(root) {
 }
 
 function isComposeTextbox(element) {
+  if (!(element instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (isLinkedInPlatform()) {
+    const placeholder = [
+      element.getAttribute("data-placeholder") || "",
+      element.getAttribute("aria-label") || "",
+      element.textContent || ""
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return (
+      element.matches?.('div[role="textbox"][contenteditable="true"]') ||
+      element.matches?.('div[contenteditable="true"][data-placeholder]') ||
+      element.matches?.('.ql-editor[contenteditable="true"]') ||
+      element.matches?.('.mentions-texteditor__contenteditable[contenteditable="true"]') ||
+      placeholder.includes("what do you want to talk about") ||
+      placeholder.includes("add a comment")
+    );
+  }
+
   return (
     element.matches?.('[data-testid="tweetTextarea_0"]') ||
     element.matches?.('div[role="textbox"][contenteditable="true"]') ||
@@ -976,6 +1193,14 @@ function extractComposerText(composer) {
 function isLikelyReplyTextbox(element) {
   const container = element.closest("article, div[role='dialog'], div[role='group'], div");
   const text = container?.innerText?.toLowerCase() || "";
+  if (isLinkedInPlatform()) {
+    return (
+      text.includes("add a comment") ||
+      text.includes("comment as") ||
+      text.includes("reply to comment") ||
+      text.includes("leave your thoughts")
+    );
+  }
   return text.includes("post your reply") || text.includes("replying to");
 }
 
@@ -983,11 +1208,23 @@ function detectComposeSurface(postButton) {
   if (postButton.closest('div[role="dialog"]')) {
     return "modal-composer";
   }
+  if (isLinkedInPlatform()) {
+    return "inline-composer";
+  }
   return "home-composer";
 }
 
 function setEditableText(box, value) {
   box.focus();
+
+  const selection = window.getSelection();
+  if (selection) {
+    selection.removeAllRanges();
+    const range = document.createRange();
+    range.selectNodeContents(box);
+    selection.addRange(range);
+  }
+
   try {
     document.execCommand("selectAll", false);
   } catch (_err) {
@@ -996,13 +1233,24 @@ function setEditableText(box, value) {
 
   const inserted = document.execCommand("insertText", false, value);
   if (!inserted) {
-    box.textContent = value;
+    if (box.matches(".ql-editor, .mentions-texteditor__contenteditable")) {
+      box.innerHTML = "";
+      const paragraph = document.createElement("p");
+      paragraph.textContent = value;
+      box.appendChild(paragraph);
+    } else {
+      box.textContent = value;
+    }
   }
 
   box.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, cancelable: true, data: value, inputType: "insertText" }));
   box.dispatchEvent(new InputEvent("input", { bubbles: true, data: value, inputType: "insertText" }));
   box.dispatchEvent(new Event("change", { bubbles: true }));
   return true;
+}
+
+function findPostForCurrentSelection() {
+  return findCurrentPostElement();
 }
 
 function isElementVisible(element) {

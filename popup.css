@@ -5,13 +5,15 @@
 
 body {
   margin: 0;
-  width: 360px;
+  width: 400px;
   background: #0b0f14;
   color: #e5e7eb;
 }
 
 .container {
   padding: 14px;
+  max-height: 620px;
+  overflow: auto;
 }
 
 .header {
@@ -31,19 +33,64 @@ h1 {
   font-size: 18px;
 }
 
+h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.card {
+  border: 1px solid #1f2937;
+  border-radius: 10px;
+  padding: 12px;
+  background: #0f172a;
+  margin-bottom: 12px;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.banner {
+  border: 1px solid #10b981;
+  background: #052e2b;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.banner p {
+  margin: 6px 0 10px;
+  font-size: 12px;
+  color: #bbf7d0;
+}
+
+.badge {
+  font-size: 11px;
+  color: #93c5fd;
+  background: #1e293b;
+  border: 1px solid #334155;
+  padding: 3px 7px;
+  border-radius: 999px;
+}
+
 .field {
   display: block;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .field > span {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
   font-size: 12px;
   color: #cbd5e1;
 }
 
 input[type="password"],
+input[type="text"],
 select,
 textarea {
   width: 100%;
@@ -58,27 +105,53 @@ textarea {
 
 textarea {
   resize: vertical;
-  min-height: 88px;
+  min-height: 72px;
 }
 
 input[type="range"] {
   width: 100%;
 }
 
-.save-btn {
-  width: 100%;
+.save-btn,
+.secondary-btn {
   border: 0;
   border-radius: 8px;
-  padding: 10px;
-  font-size: 13px;
+  padding: 9px 10px;
+  font-size: 12px;
   font-weight: 600;
+  cursor: pointer;
+}
+
+.save-btn {
   background: #10b981;
   color: #052e2b;
-  cursor: pointer;
 }
 
 .save-btn:hover {
   background: #34d399;
+}
+
+.secondary-btn {
+  background: #1f2937;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+}
+
+.secondary-btn:hover {
+  background: #334155;
+}
+
+.row-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.row-btns > * {
+  flex: 1;
+}
+
+.row-btns.compact > * {
+  flex: initial;
 }
 
 .status {
@@ -86,4 +159,8 @@ input[type="range"] {
   margin: 10px 0 0;
   font-size: 12px;
   color: #93c5fd;
+}
+
+.hidden {
+  display: none;
 }
