@@ -11,6 +11,7 @@ const state = {
   replies: [],
   drafts: [],
   lastBrainDump: "",
+  userOpinion: "",
   activeComposer: null,
   composeSurface: "unknown"
 };
@@ -192,29 +193,19 @@ async function onAiReplyClick(postElement, button) {
     state.mode = "reply";
     const post = await extractPostData(postElement);
     state.currentPost = post;
+    state.userOpinion = "";
+
+    const refs = getModalRefs();
+    refs.opinionInput.value = "";
+    refs.cards.innerHTML = "";
 
     openModal();
     setPanelMode("reply");
-    setLoading(true, "Generating replies...");
+    showOpinionInput(true);
+    setLoading(false);
     setStatus("");
-
-    const images = await fetchPostImages(post.imageUrls || []);
-    const payloadPost = {
-      ...post,
-      images
-    };
-
-    const response = await sendRuntimeMessage({
-      type: "GENERATE_REPLIES",
-      post: payloadPost
-    });
-
-    state.replies = response.replies || [];
-    renderReplies(state.replies);
-    setLoading(false);
   } catch (error) {
-    setLoading(false);
-    setStatus(error.message || "Could not generate replies. Try again.");
+    setStatus(error.message || "Could not load post. Try again.");
   } finally {
     button.disabled = false;
   }
@@ -708,7 +699,49 @@ function getModalRefs() {
       #lucian-foot {
         display: flex;
         justify-content: flex-end;
+        gap: 8px;
         margin-top: 10px;
+      }
+      #lucian-opinion-wrap {
+        display: none;
+        margin: 0 0 10px;
+        padding: 10px;
+        border: 1px solid #334155;
+        border-radius: 10px;
+        background: rgba(15, 23, 42, 0.85);
+      }
+      #lucian-opinion-wrap.open {
+        display: block;
+      }
+      #lucian-opinion-label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 11px;
+        color: #cbd5e1;
+      }
+      #lucian-opinion-input {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        background: #111827;
+        color: #f8fafc;
+        padding: 8px 9px;
+        font-size: 12px;
+        min-height: 72px;
+        resize: vertical;
+      }
+      #lucian-opinion-actions {
+        margin-top: 8px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+      #lucian-different-angle {
+        display: none;
+      }
+      #lucian-different-angle.show {
+        display: inline-block;
       }
     `;
     shadow.appendChild(fallbackStyle);
@@ -727,6 +760,14 @@ function getModalRefs() {
           <div id="lucian-body">
             <p id="lucian-status"></p>
             <div id="lucian-loading">Generating replies...</div>
+            <div id="lucian-opinion-wrap">
+              <label id="lucian-opinion-label" for="lucian-opinion-input">What's your take? (optional)</label>
+              <textarea id="lucian-opinion-input" placeholder="Share your angle, opinion, or reaction..."></textarea>
+              <div id="lucian-opinion-actions">
+                <button id="lucian-skip-btn" class="lucian-btn secondary">Skip</button>
+                <button id="lucian-generate-opinion-btn" class="lucian-btn primary">Generate</button>
+              </div>
+            </div>
             <div id="lucian-compose-wrap">
               <label id="lucian-compose-label" for="lucian-compose-input">Brain dump for the post</label>
               <textarea id="lucian-compose-input" placeholder="Dump raw thoughts, points, and opinions here..."></textarea>
@@ -736,6 +777,7 @@ function getModalRefs() {
             </div>
             <div id="lucian-cards"></div>
             <div id="lucian-foot">
+              <button id="lucian-different-angle" class="lucian-btn secondary">Try different angle</button>
               <button id="lucian-regenerate" class="lucian-btn primary">Regenerate</button>
             </div>
           </div>
@@ -747,6 +789,9 @@ function getModalRefs() {
     shadow.getElementById("lucian-close").addEventListener("click", closeModal);
     shadow.getElementById("lucian-regenerate").addEventListener("click", onRegenerateClick);
     shadow.getElementById("lucian-generate-drafts").addEventListener("click", onGenerateDraftsClick);
+    shadow.getElementById("lucian-skip-btn").addEventListener("click", onSkipGenerate);
+    shadow.getElementById("lucian-generate-opinion-btn").addEventListener("click", onGenerateWithOpinion);
+    shadow.getElementById("lucian-different-angle").addEventListener("click", onTryDifferentAngle);
   }
 
   const shadow = host.shadowRoot;
@@ -759,7 +804,10 @@ function getModalRefs() {
     cards: shadow.getElementById("lucian-cards"),
     regenerate: shadow.getElementById("lucian-regenerate"),
     composeWrap: shadow.getElementById("lucian-compose-wrap"),
-    composeInput: shadow.getElementById("lucian-compose-input")
+    composeInput: shadow.getElementById("lucian-compose-input"),
+    opinionWrap: shadow.getElementById("lucian-opinion-wrap"),
+    opinionInput: shadow.getElementById("lucian-opinion-input"),
+    differentAngle: shadow.getElementById("lucian-different-angle")
   };
 }
 
@@ -793,6 +841,8 @@ function setPanelMode(mode) {
     refs.title.textContent = `Turn brain dump into ${platformLabel()} post drafts`;
     refs.regenerate.textContent = "Regenerate drafts";
     refs.composeWrap.classList.add("open");
+    refs.opinionWrap.classList.remove("open");
+    refs.differentAngle.classList.remove("show");
     return;
   }
 
@@ -900,6 +950,50 @@ async function onRegenerateClick() {
     return;
   }
 
+  await generateReplies();
+}
+
+async function onSkipGenerate() {
+  state.userOpinion = "";
+  showOpinionInput(false);
+  await generateReplies();
+}
+
+async function onGenerateWithOpinion() {
+  const refs = getModalRefs();
+  state.userOpinion = refs.opinionInput.value.trim();
+  showOpinionInput(false);
+  await generateReplies();
+}
+
+function onTryDifferentAngle() {
+  const refs = getModalRefs();
+  refs.opinionInput.value = state.userOpinion;
+  refs.cards.innerHTML = "";
+  showOpinionInput(true);
+  showDifferentAngleButton(false);
+  setStatus("");
+}
+
+function showOpinionInput(visible) {
+  const refs = getModalRefs();
+  refs.opinionWrap.classList.toggle("open", visible);
+  if (visible) {
+    refs.opinionInput.focus();
+  }
+}
+
+function showDifferentAngleButton(visible) {
+  const refs = getModalRefs();
+  refs.differentAngle.classList.toggle("show", visible);
+}
+
+async function generateReplies() {
+  if (!state.currentPost) {
+    setStatus("Open a post and click AI Reply first.");
+    return;
+  }
+
   setLoading(true, "Generating replies...");
   setStatus("");
 
@@ -910,12 +1004,14 @@ async function onRegenerateClick() {
       post: {
         ...state.currentPost,
         images
-      }
+      },
+      userOpinion: state.userOpinion
     });
     state.replies = response.replies || [];
     renderReplies(state.replies);
+    showDifferentAngleButton(true);
   } catch (error) {
-    setStatus(error.message || "Regenerate failed. Try again.");
+    setStatus(error.message || "Could not generate replies. Try again.");
   } finally {
     setLoading(false);
   }

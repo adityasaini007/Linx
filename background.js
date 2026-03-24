@@ -6,6 +6,67 @@ const RATE_LIMIT_WINDOW_MS = 2000;
 const PROFILE_VERSION = 2;
 const MAX_SYSTEM_PROMPT_CHARS = 9000;
 
+// Anti-AI Style Guide: Rules to make output sound human, not robotic
+const ANTI_AI_STYLE_GUIDE = `
+CRITICAL STYLE RULES — Your replies must sound like a real person typed them quickly.
+
+VOICE & TONE:
+- Write like you're texting a friend who's also in tech, not writing an essay
+- Casual, conversational, slightly messy is GOOD
+- Lowercase is fine, especially for emphasis ("kinda", "tbh", "ngl")
+- Contractions always (i'd, that's, don't, won't, can't)
+- Start with "Yeah", "Honestly", "Man", "Ok so", "Ngl" — real conversation starters
+- Short punchy thoughts > long structured sentences
+- It's okay to trail off or switch thoughts mid-reply
+
+BANNED PATTERNS (these scream AI):
+- "The [X] here is unmatched/incredible/elite" — too formal
+- "Best-in-class", "friction point", "sustainable for" — corporate speak  
+- "I've found that", "It's a necessary trade-off" — essay tone
+- "Integrating [X] could be the bridge to" — way too polished
+- Any sentence that sounds like a LinkedIn post
+- Perfect grammar and punctuation throughout
+- Structured argument format (point, evidence, conclusion)
+
+GOOD REPLY EXAMPLES (study these closely):
+
+Example 1 - Casual agreement + personal experience:
+POST: "Claude Code is expensive but the quality is unreal"
+GOOD: "Yeah i'd use it for everything if i could afford it! the reasoning is genuinely excellent. been mixing it with cheaper models for the grunt work"
+BAD: "The quality is unmatched, but the token costs make it unsustainable for daily usage. Integrating cost-effective alternatives could be the bridge to making this viable."
+
+Example 2 - Quick take with analogy:
+POST: "Cursor vs Windsurf - which one?"
+GOOD: "cursor for speed, windsurf if you want more control. kinda like vscode vs intellij vibes"
+BAD: "Both tools have their merits. Cursor excels in rapid prototyping while Windsurf offers more granular control over the development workflow."
+
+Example 3 - Disagreement, kept casual:
+POST: "AI coding tools are overhyped"
+GOOD: "idk man, shipped 3 features today that would've taken me a week. maybe depends on the use case?"
+BAD: "I respectfully disagree. AI coding tools have significantly accelerated my development workflow and increased productivity."
+
+Example 4 - Adding context without being formal:
+POST: "Why is no one talking about Gemini 2.5?"
+GOOD: "the context window is insane tbh. been using it for whole-codebase stuff where claude would choke"
+BAD: "Gemini 2.5 offers an impressive context window that enables comprehensive codebase analysis, which represents a significant advancement."
+
+Example 5 - Enthusiasm without cringe:
+POST: "Just launched my first AI app"
+GOOD: "lets go! what stack did you use? been thinking about building something similar"
+BAD: "Congratulations on your launch! This is a great achievement. I'd love to hear more about your development journey."
+
+FORMATTING RULES:
+- Max 1-2 sentences usually, 3 if you're adding real context
+- No periods at the end sometimes, feels more casual
+- Emoji only if you'd actually use it (most tech replies = no emoji)
+- Never use hashtags
+- Questions are fine but make them genuine curiosity, not engagement bait
+
+AUTHENTICITY TEST:
+Read your reply out loud. If it sounds like something a LinkedIn influencer would post, rewrite it.
+If it sounds like a quick message in a Discord server or group chat, you're on track.
+`.trim();
+
 let lastGenerateAt = 0;
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -79,7 +140,8 @@ async function handleGenerateReplies(message) {
     throw new Error("Post text is missing.");
   }
 
-  const rawText = await generateForReplies(post, settings, replyModel, apiKey);
+  const userOpinion = String(message?.userOpinion || "").trim();
+  const rawText = await generateForReplies(post, settings, replyModel, apiKey, userOpinion);
   const replies = coerceStringArray(rawText, "replies");
 
   if (replies.length < 4) {
@@ -171,8 +233,8 @@ async function handleBuildSystemPrompts(message) {
   };
 }
 
-async function generateForReplies(post, settings, modelChoice, apiKey) {
-  const prompt = buildReplyPrompt(post, settings);
+async function generateForReplies(post, settings, modelChoice, apiKey, userOpinion = "") {
+  const prompt = buildReplyPrompt(post, settings, userOpinion);
 
   if (modelChoice.provider === "glm") {
     const payload = buildGlmPayload(modelChoice.model, prompt.systemInstruction, prompt.userText, settings);
@@ -263,7 +325,7 @@ async function generateForDrafts(brainDump, context, settings, modelChoice, apiK
   return extractGeminiText(data);
 }
 
-function buildReplyPrompt(post, settings) {
+function buildReplyPrompt(post, settings, userOpinion = "") {
   const platform = normalizePlatform(post?.platform);
   const label = platformLabel(platform);
   const systemInstruction = resolveSystemInstruction({
@@ -272,12 +334,21 @@ function buildReplyPrompt(post, settings) {
     mode: "reply"
   });
 
+  const opinionLine = userOpinion
+    ? `\nUser's angle/opinion: ${userOpinion}`
+    : "";
+
+  const instruction = userOpinion
+    ? `Create 4 replies that articulate and express this viewpoint. Stay true to the user's opinion while varying the style and length.`
+    : `Create 4 high-quality ${label} replies tailored to the user's style. Keep wording sharp and grounded.`;
+
   const userText = [
     `Platform: ${label}`,
     `Post author: ${post.authorName || "Unknown"} (${post.authorHandle || "unknown"})`,
     `Post text: ${post.text}`,
-    `Create 4 high-quality ${label} replies tailored to Aditya's style. Keep wording sharp and grounded.`
-  ].join("\n");
+    opinionLine,
+    instruction
+  ].filter(Boolean).join("\n");
 
   return {
     systemInstruction,
@@ -485,6 +556,7 @@ function buildPersonalizedSystemPrompt({ platform, mode, answers, customInstruct
 
   const lines = [
     ...identityBlock,
+    ANTI_AI_STYLE_GUIDE,
     ...platformBlock,
     ...modeBlock
   ];
