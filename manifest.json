@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Linx",
-  "description": "Personal AI reply assistant for LinkedIn and X powered by Gemini and GLM.",
+  "description": "AI-powered reply suggestion tool for LinkedIn and X. You have the opinion, Linx helps you articulate it.",
   "version": "1.0.0",
   "permissions": [
     "storage",

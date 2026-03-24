@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - Linx</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #111;
+            border-bottom: 3px solid #10b981;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #1f2937;
+            margin-top: 30px;
+        }
+        h3 {
+            color: #374151;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background: #f3f4f6;
+            font-weight: 600;
+        }
+        ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        ul li:before {
+            content: "→ ";
+            color: #10b981;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        .highlight {
+            background: #fef3c7;
+            padding: 15px;
+            border-left: 4px solid #f59e0b;
+            margin: 20px 0;
+        }
+        .summary-box {
+            background: #ecfdf5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 30px 0;
+        }
+        a {
+            color: #10b981;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .last-updated {
+            color: #6b7280;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Privacy Policy</h1>
+        <p><strong>Linx - AI Reply & Post Suggestion Tool for LinkedIn & X</strong></p>
+        <p class="last-updated">Last Updated: March 24, 2026</p>
+
+        <hr>
+
+        <h2>Overview</h2>
+        <p>Linx is a browser extension that helps you articulate your thoughts with AI-powered reply and post suggestions on LinkedIn and X (Twitter). We are committed to protecting your privacy and being transparent about how data is handled.</p>
+        
+        <div class="highlight">
+            <strong>Key Principle:</strong> Your data stays on your device. We do not operate servers, collect analytics, or track your activity.
+        </div>
+
+        <h2>Data Collection</h2>
+
+        <h3>What We Store Locally</h3>
+        <p>All data is stored <strong>exclusively on your device</strong> using Chrome's secure storage APIs:</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Data Type</th>
+                    <th>Storage Location</th>
+                    <th>Purpose</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>API Keys</td>
+                    <td>chrome.storage.sync</td>
+                    <td>Authenticate with AI providers (Gemini, GLM)</td>
+                </tr>
+                <tr>
+                    <td>Profile Answers</td>
+                    <td>chrome.storage.sync</td>
+                    <td>Personalize AI-generated content</td>
+                </tr>
+                <tr>
+                    <td>System Prompts</td>
+                    <td>chrome.storage.local</td>
+                    <td>Customize reply/draft generation</td>
+                </tr>
+                <tr>
+                    <td>Model Preferences</td>
+                    <td>chrome.storage.sync</td>
+                    <td>Remember your model and temperature settings</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>What We Do NOT Collect</h3>
+        <ul>
+            <li>No personal information is sent to us</li>
+            <li>No analytics or telemetry</li>
+            <li>No browsing history</li>
+            <li>No tracking cookies</li>
+            <li>No server-side data storage</li>
+        </ul>
+
+        <h2>Data Sharing with Third Parties</h2>
+
+        <h3>AI API Providers</h3>
+        <p>When you click "AI Reply" or "AI Draft", the following data is sent to your chosen AI provider:</p>
+
+        <p><strong>Sent to Google Gemini or GLM APIs:</strong></p>
+        <ul>
+            <li>The text content of the post you're replying to</li>
+            <li>Author name/handle of the post (for context)</li>
+            <li>Images attached to the post (if any, up to 2)</li>
+            <li>Your personalized system prompt (based on your profile answers)</li>
+            <li>Your "brain dump" text (for draft generation)</li>
+            <li>Your optional opinion/angle input (if provided)</li>
+        </ul>
+
+        <p><strong>Your API key</strong> is sent directly to the AI provider to authenticate requests. We never see or store your API key on any server.</p>
+
+        <h3>AI Providers Used</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Provider</th>
+                    <th>Endpoint</th>
+                    <th>Privacy Policy</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Google Gemini</td>
+                    <td>generativelanguage.googleapis.com</td>
+                    <td><a href="https://ai.google.dev/terms" target="_blank">Google AI Privacy</a></td>
+                </tr>
+                <tr>
+                    <td>GLM (Zhipu AI)</td>
+                    <td>api.z.ai</td>
+                    <td><a href="https://open.bigmodel.cn/dev/howuse/agreement" target="_blank">Zhipu AI Terms</a></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="highlight">
+            <strong>Important:</strong> Data sent to AI providers is subject to their respective privacy policies. We recommend reviewing their terms before use.
+        </div>
+
+        <h2>Permissions Explained</h2>
+        <p>Linx requests the following Chrome permissions:</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Permission</th>
+                    <th>Why It's Needed</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>storage</td>
+                    <td>Save your settings, API keys, and prompts locally</td>
+                </tr>
+                <tr>
+                    <td>activeTab</td>
+                    <td>Inject AI buttons only on LinkedIn/X tabs you're viewing</td>
+                </tr>
+                <tr>
+                    <td>scripting</td>
+                    <td>Insert generated replies/drafts into text fields</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Host Permissions</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Domain</th>
+                    <th>Purpose</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>linkedin.com, x.com, twitter.com</td>
+                    <td>Inject content scripts for AI buttons</td>
+                </tr>
+                <tr>
+                    <td>licdn.com, pbs.twimg.com</td>
+                    <td>Fetch post images for AI context</td>
+                </tr>
+                <tr>
+                    <td>generativelanguage.googleapis.com</td>
+                    <td>Google Gemini API calls</td>
+                </tr>
+                <tr>
+                    <td>open.bigmodel.cn, api.z.ai</td>
+                    <td>GLM API calls</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Data Security</h2>
+
+        <h3>How Your Data is Protected</h3>
+        <ol>
+            <li><strong>Local-Only Storage:</strong> All sensitive data (API keys, profile) is stored in Chrome's encrypted storage, never transmitted to our servers</li>
+            <li><strong>Direct API Calls:</strong> Requests go directly from your browser to AI providers—no intermediary servers</li>
+            <li><strong>No Persistence:</strong> Post content is processed in memory and not stored after generation</li>
+            <li><strong>HTTPS Only:</strong> All external communications use encrypted HTTPS connections</li>
+        </ol>
+
+        <h3>API Key Security</h3>
+        <ul>
+            <li>API keys are stored in chrome.storage.sync, which is encrypted by Chrome</li>
+            <li>Keys are only transmitted to the respective AI provider's API endpoint</li>
+            <li>We recommend using API keys with appropriate usage limits</li>
+        </ul>
+
+        <h2>Your Rights & Controls</h2>
+
+        <h3>You Can:</h3>
+        <ul>
+            <li><strong>Delete all data:</strong> Uninstall the extension to remove all stored data</li>
+            <li><strong>Clear settings:</strong> Use Chrome's extension settings to clear storage</li>
+            <li><strong>Edit/delete profile:</strong> Modify or remove your profile answers anytime via the popup</li>
+            <li><strong>Revoke API keys:</strong> Delete your API keys from the extension settings</li>
+            <li><strong>Use without personalization:</strong> The extension works with default prompts if you skip onboarding</li>
+        </ul>
+
+        <h3>Data Retention</h3>
+        <ul>
+            <li><strong>Local data:</strong> Persists until you clear it or uninstall the extension</li>
+            <li><strong>AI provider data:</strong> Subject to each provider's retention policy (see their privacy policies)</li>
+        </ul>
+
+        <h2>Children's Privacy</h2>
+        <p>Linx is not intended for use by children under 13 years of age. We do not knowingly process data from children.</p>
+
+        <h2>Changes to This Policy</h2>
+        <p>We may update this privacy policy from time to time. Changes will be reflected in the "Last Updated" date above. Continued use of the extension after changes constitutes acceptance of the updated policy.</p>
+
+        <h2>Open Source</h2>
+        <p>Linx is open source software. You can review exactly how data is handled by inspecting the source code:</p>
+        <ul>
+            <li><strong>Repository:</strong> <a href="https://github.com/adityasaini007/Linx" target="_blank">GitHub</a></li>
+            <li><strong>License:</strong> MIT</li>
+        </ul>
+
+        <h2>Contact</h2>
+        <p>If you have questions or concerns about this privacy policy:</p>
+        <ul>
+            <li><strong>GitHub Issues:</strong> <a href="https://github.com/adityasaini007/Linx/issues" target="_blank">Report an issue</a></li>
+            <li><strong>Email:</strong> <a href="mailto:feedback.linx@gmail.com">feedback.linx@gmail.com</a></li>
+        </ul>
+
+        <div class="summary-box">
+            <h2>Summary</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Question</th>
+                        <th>Answer</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Do you collect my data?</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>Do you have servers?</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>Where is my data stored?</td>
+                        <td>Only on your device</td>
+                    </tr>
+                    <tr>
+                        <td>Who sees my posts?</td>
+                        <td>Only the AI provider you choose</td>
+                    </tr>
+                    <tr>
+                        <td>Can I delete my data?</td>
+                        <td>Yes, anytime</td>
+                    </tr>
+                    <tr>
+                        <td>Is the code auditable?</td>
+                        <td>Yes, it's open source</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <hr>
+        <p class="last-updated">This privacy policy is effective as of March 24, 2026.</p>
+    </div>
+</body>
+</html>
