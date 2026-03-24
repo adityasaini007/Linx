@@ -2,14 +2,14 @@
 
 # ✦ Linx
 
-### AI-Powered Reply & Post Assistant for LinkedIn & X
+### AI-Powered Reply & Post Suggestion Tool for LinkedIn & X
 
 ![Chrome Web Store](https://img.shields.io/badge/Platform-Chrome-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-34A853?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 ![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen?style=for-the-badge)
 
-**Generate smart, contextual replies and polished posts in seconds.**
+**You have the opinion. Linx helps you articulate it.**
 **Powered by Google Gemini & GLM.**
 
 [Features](#features) · [Installation](#installation) · [Usage](#usage) · [Configuration](#configuration) · [Privacy](#privacy) · [Contributing](#contributing)
@@ -24,43 +24,70 @@
 
 ## Why Linx?
 
-Building a personal brand on LinkedIn and X requires consistent, high-quality engagement. But crafting thoughtful replies to every post is time-consuming.
+You know what you want to say. You just need help saying it well.
 
-**Linx solves this** by generating 4 distinct reply options tailored to your voice, expertise, and audience—directly within LinkedIn and X.
+Linx is a **suggestion tool**, not an auto-reply bot. It helps you articulate your thoughts—turning your rough take into a polished reply that sounds like *you*, not a corporate chatbot.
+
+**The difference:**
+- Spam bots generate generic replies without your input
+- Linx asks for *your angle* and helps you express it naturally
 
 | Without Linx | With Linx |
 |--------------|-----------|
-| Stare at post, struggle to respond | Click "AI Reply", pick from 4 options |
-| Generic "Great post!" comments | Contextual, insightful replies |
+| Have an opinion, struggle to word it | Share your take → get 4 ways to say it |
+| Generic "Great post!" comments | Your actual perspective, well-articulated |
 | Hours spent on content creation | Brain dump → polished post in seconds |
-| One-size-fits-all tone | Personalized to your voice |
+| Replies that scream "AI wrote this" | Casual, human-sounding suggestions |
 
 ---
 
 ## Features
 
-### AI Reply Generation
+### Share Your Take → Get Suggestions
 
-Inject an **"AI Reply"** button on every post. Click it to generate 4 unique reply options:
+When you click "AI Reply", Linx asks: **"What's your angle?"**
+
+1. **Type your rough opinion** — even just a few words like "disagree, this ignores edge cases"
+2. **Or skip** if you want quick suggestions without input
+3. **Get 4 reply options** that articulate your perspective
+4. **Try a different angle** if you change your mind
+
+This keeps you in control. Linx suggests—*you* decide what to post.
+
+### Human-Sounding Output
+
+Linx is trained to sound like a real person, not a LinkedIn influencer bot:
+
+| AI-Sounding (Bad) | Human-Sounding (Good) |
+|-------------------|----------------------|
+| "Absolutely brilliant insights!" | "yeah this is solid" |
+| "The utility here is unmatched" | "honestly been thinking about this too" |
+| "Best-in-class workflow" | "we tried something similar, worked well" |
+
+Replies use casual language, contractions, lowercase where natural—like you're texting a friend.
+
+### AI Reply Suggestions
+
+Inject an **"AI Reply"** button on every post. Click it to get 4 unique reply suggestions:
 
 - **Direct opinion** — Clear, confident take on the topic
 - **Strategic insight** — Adds depth with experience or data
 - **Punchy one-liner** — Memorable, quotable response
 - **Nuanced perspective** — Balanced, thoughtful angle
 
-Each reply is tailored to:
+Each suggestion is tailored to:
 - The post's content and context
 - The author's profile and industry
 - Your personalized voice and expertise
 - Platform norms (LinkedIn: professional, X: concise)
 
-### AI Draft Generation
+### AI Draft Suggestions
 
 Turn rough ideas into polished posts with **"AI Draft"**:
 
 1. Open the post composer
 2. Dump your raw thoughts, bullet points, or messy notes
-3. Click "AI Draft" to generate 4 polished post options
+3. Click "AI Draft" to get 4 polished post suggestions
 4. Pick one, edit if needed, and post
 
 **Platform-aware formatting:**
@@ -73,7 +100,7 @@ Linx doesn't just read text—it **sees images too**:
 
 - Extracts up to 2 images from posts
 - Sends them to the AI for visual context
-- Generates replies that reference image content
+- Generates suggestions that reference image content
 
 ### Deep Personalization
 
@@ -158,27 +185,29 @@ Adjust **temperature** (0.0–1.5) to control creativity vs. consistency.
 
 ## Usage
 
-### Generating Replies
+### Generating Reply Suggestions
 
 1. **Browse LinkedIn or X** as usual
 2. **Find a post** you want to reply to
-3. **Click "✦ AI Reply"** in the post's action bar
-4. **Wait ~2-3 seconds** for 4 reply options
-5. **Click "Insert"** to paste into the reply box, or **"Copy"** to clipboard
-6. **Edit if needed** and post!
+3. **Click "AI Reply"** in the post's action bar
+4. **Share your angle** (optional) — type your rough take, or skip for quick suggestions
+5. **Review 4 reply options** (~2-3 seconds)
+6. **Click "Insert"** to paste into the reply box, or **"Copy"** to clipboard
+7. **Try different angle** if you want to approach it differently
+8. **Edit if needed** and post!
 
 ### Generating Post Drafts
 
 1. **Open the post composer** on LinkedIn or X
 2. **Write a rough brain dump** — bullet points, messy thoughts, key ideas
-3. **Click "✦ AI Draft"** next to the Post button
-4. **Review 4 polished drafts** in the modal
+3. **Click "AI Draft"** next to the Post button
+4. **Review 4 polished suggestions** in the modal
 5. **Insert your favorite** into the composer
 6. **Refine and publish**
 
-### Regenerating Content
+### Regenerating Suggestions
 
-Not happy with the options? Click **"Regenerate"** to get 4 fresh alternatives.
+Not happy with the options? Click **"Regenerate"** to get 4 fresh alternatives, or **"Try different angle"** to provide a new perspective.
 
 ---
 
@@ -341,9 +370,10 @@ cd linx
 </details>
 
 <details>
-<summary><strong>Replies don't match my style</strong></summary>
+<summary><strong>Suggestions don't match my style</strong></summary>
 
 - Complete the full onboarding (both steps)
+- Use the "What's your angle?" input to guide the AI
 - Edit your system prompts directly for fine-tuning
 - Adjust temperature (lower = more consistent, higher = more creative)
 
@@ -378,8 +408,8 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 **Built with care for builders, creators, and operators.**
 
-✦ **Linx** — Your AI voice on LinkedIn & X
+**Linx** — Your AI writing assistant for LinkedIn & X. You think it, Linx helps you say it.
 
-[Report Bug](https://github.com/adityasaini007/Linx/issues) · [Request Feature](https://github.com/adityasaini007/Linx/issues) · [Star on GitHub](https://github.com/adityasaini007/Linx)
+[Report Bug](https://github.com/adityasaini007/Linx/issues) · [Request Feature](https://github.com/adityasaini007/Linx/issues) · [Contact](mailto:feedback.linx@gmail.com) · [Star on GitHub](https://github.com/adityasaini007/Linx)
 
 </div>
