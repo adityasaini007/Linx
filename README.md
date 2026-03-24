@@ -113,7 +113,7 @@ Adjust **temperature** (0.0–1.5) to control creativity vs. consistency.
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/linx.git
+   git clone https://github.com/adityasaini007/Linx.git
    cd linx
    ```
 
@@ -294,7 +294,7 @@ Contributions are welcome! Here's how to help:
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-username/linx.git
+git clone https://github.com/adityasaini007/Linx.git
 cd linx
 
 # Load in Chrome (Developer Mode)
@@ -326,7 +326,7 @@ cd linx
 
 - Refresh the page
 - Check that the extension is enabled in `chrome://extensions/`
-- LinkedIn/X may have updated their DOM — please [open an issue](https://github.com/your-username/linx/issues)
+- LinkedIn/X may have updated their DOM — please [open an issue](https://github.com/adityasaini007/Linx/issues)
 
 </details>
 
@@ -380,6 +380,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ✦ **Linx** — Your AI voice on LinkedIn & X
 
-[Report Bug](https://github.com/your-username/linx/issues) · [Request Feature](https://github.com/your-username/linx/issues) · [Star on GitHub](https://github.com/your-username/linx)
+[Report Bug](https://github.com/adityasaini007/Linx/issues) · [Request Feature](https://github.com/adityasaini007/Linx/issues) · [Star on GitHub](https://github.com/adityasaini007/Linx)
 
 </div>

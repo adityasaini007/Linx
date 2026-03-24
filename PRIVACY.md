@@ -134,7 +134,7 @@ We may update this privacy policy from time to time. Changes will be reflected i
 
 Linx is open source software. You can review exactly how data is handled by inspecting the source code:
 
-- **Repository**: [GitHub](https://github.com/your-username/linx)
+- **Repository**: [GitHub](https://github.com/adityasaini007/Linx)
 - **License**: MIT
 
 ---
@@ -143,8 +143,8 @@ Linx is open source software. You can review exactly how data is handled by insp
 
 If you have questions or concerns about this privacy policy:
 
-- **GitHub Issues**: [Report an issue](https://github.com/your-username/linx/issues)
-- **Email**: your-email@example.com
+- **GitHub Issues**: [Report an issue](https://github.com/adityasaini007/Linx/issues)
+- **Email**: feedback.linx@gmail.com
 
 ---
 
