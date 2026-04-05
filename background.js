@@ -1,9 +1,10 @@
-const DEFAULT_MODEL = "gemini:gemini-3-flash-preview";
-const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const GLM_ENDPOINT = "https://api.z.ai/api/coding/paas/v4/chat/completions";
+const DEFAULT_MODEL = "";
+const OPENROUTER_CHAT_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER_MODELS_ENDPOINT = "https://openrouter.ai/api/v1/models";
 const DEFAULT_TEMPERATURE = 0.7;
 const RATE_LIMIT_WINDOW_MS = 2000;
 const PROFILE_VERSION = 2;
+const PROVIDER_VERSION = 1;
 const MAX_SYSTEM_PROMPT_CHARS = 9000;
 
 // Anti-AI Style Guide: Rules to make output sound human, not robotic
@@ -21,7 +22,7 @@ VOICE & TONE:
 
 BANNED PATTERNS (these scream AI):
 - "The [X] here is unmatched/incredible/elite" — too formal
-- "Best-in-class", "friction point", "sustainable for" — corporate speak  
+- "Best-in-class", "friction point", "sustainable for" — corporate speak
 - "I've found that", "It's a necessary trade-off" — essay tone
 - "Integrating [X] could be the bridge to" — way too polished
 - Any sentence that sounds like a LinkedIn post
@@ -82,6 +83,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "FETCH_OPENROUTER_MODELS") {
+    handleFetchOpenRouterModels(message)
+      .then((payload) => sendResponse({ ok: true, data: payload }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
   if (message.type === "GENERATE_REPLIES") {
     handleGenerateReplies(message)
       .then((payload) => sendResponse({ ok: true, data: payload }))
@@ -127,13 +135,54 @@ async function handleFetchImage(message) {
   };
 }
 
+async function handleFetchOpenRouterModels(message) {
+  const settings = await getSettings();
+  const apiKey = String(message?.apiKey || settings.openrouterApiKey || "").trim();
+  const forceRefresh = Boolean(message?.forceRefresh);
+  ensureApiKey(apiKey);
+
+  const cached = sanitizeOpenRouterModelsCache(settings.openrouterModelsCache);
+  if (!forceRefresh && cached.models.length) {
+    return {
+      models: cached.models,
+      fetchedAt: cached.fetchedAt,
+      fromCache: true,
+      warning: "Using cached OpenRouter model list."
+    };
+  }
+
+  try {
+    const models = await fetchOpenRouterModels(apiKey);
+    const payload = {
+      models,
+      fetchedAt: Date.now()
+    };
+    await chrome.storage.local.set({ openrouterModelsCache: payload });
+    return {
+      ...payload,
+      fromCache: false,
+      warning: ""
+    };
+  } catch (error) {
+    if (cached.models.length) {
+      return {
+        models: cached.models,
+        fetchedAt: cached.fetchedAt,
+        fromCache: true,
+        warning: `Model refresh failed: ${error.message}. Using cached models.`
+      };
+    }
+    throw error;
+  }
+}
+
 async function handleGenerateReplies(message) {
   await enforceRateLimit();
 
   const settings = await getSettings();
-  const replyModel = parseModelChoice(settings.replyModel, DEFAULT_MODEL);
-  const apiKey = getApiKeyForProvider(settings, replyModel.provider);
-  ensureApiKey(apiKey, replyModel.provider);
+  const model = parseModelChoice(settings.replyModel, DEFAULT_MODEL);
+  ensureModelSelected(model);
+  ensureApiKey(settings.openrouterApiKey);
 
   const post = message?.post || message?.tweet;
   if (!post?.text?.trim()) {
@@ -141,15 +190,15 @@ async function handleGenerateReplies(message) {
   }
 
   const userOpinion = String(message?.userOpinion || "").trim();
-  const rawText = await generateForReplies(post, settings, replyModel, apiKey, userOpinion);
+  const rawText = await generateForReplies(post, settings, model, settings.openrouterApiKey, userOpinion);
   const replies = coerceStringArray(rawText, "replies");
 
   if (replies.length < 4) {
     const providerMessage = extractProviderMessage(rawText);
     if (providerMessage) {
-      throw new Error(`${providerDisplayName(replyModel.provider)}: ${truncateMessage(providerMessage, 320)}`);
+      throw new Error(`OpenRouter: ${truncateMessage(providerMessage, 320)}`);
     }
-    throw new Error(`${providerDisplayName(replyModel.provider)} returned an unexpected format. Try regenerate.`);
+    throw new Error("OpenRouter returned an unexpected format. Try regenerate.");
   }
 
   return {
@@ -161,26 +210,24 @@ async function handleGeneratePostDrafts(message) {
   await enforceRateLimit();
 
   const settings = await getSettings();
-  const draftModel = parseModelChoice(settings.draftModel, DEFAULT_MODEL);
-  const apiKey = getApiKeyForProvider(settings, draftModel.provider);
-  ensureApiKey(apiKey, draftModel.provider);
+  const model = parseModelChoice(settings.draftModel, DEFAULT_MODEL);
+  ensureModelSelected(model);
+  ensureApiKey(settings.openrouterApiKey);
 
   const brainDump = String(message?.brainDump || "").trim();
   if (!brainDump) {
     throw new Error("Brain dump text is missing.");
   }
 
-  const rawText = await generateForDrafts(brainDump, message?.context || {}, settings, draftModel, apiKey);
+  const rawText = await generateForDrafts(brainDump, message?.context || {}, settings, model, settings.openrouterApiKey);
   const drafts = coerceStringArray(rawText, "drafts");
 
   if (drafts.length < 4) {
     const providerMessage = extractProviderMessage(rawText);
     if (providerMessage) {
-      throw new Error(`${providerDisplayName(draftModel.provider)}: ${truncateMessage(providerMessage, 320)}`);
+      throw new Error(`OpenRouter: ${truncateMessage(providerMessage, 320)}`);
     }
-    throw new Error(
-      `${providerDisplayName(draftModel.provider)} returned an unexpected draft format. Try regenerate.`
-    );
+    throw new Error("OpenRouter returned an unexpected draft format. Try regenerate.");
   }
 
   return {
@@ -233,96 +280,46 @@ async function handleBuildSystemPrompts(message) {
   };
 }
 
-async function generateForReplies(post, settings, modelChoice, apiKey, userOpinion = "") {
+async function generateForReplies(post, settings, model, apiKey, userOpinion = "") {
   const prompt = buildReplyPrompt(post, settings, userOpinion);
-
-  if (modelChoice.provider === "glm") {
-    const payload = buildGlmPayload(modelChoice.model, prompt.systemInstruction, prompt.userText, settings);
-    const response = await fetchWithRetry(
-      GLM_ENDPOINT,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`
-        },
-        body: JSON.stringify(payload)
-      },
-      1
-    );
-
-    if (!response.ok) {
-      await throwProviderError(response, modelChoice.provider);
-    }
-
-    const data = await response.json();
-    return extractGlmText(data);
-  }
-
-  const payload = buildGeminiReplyPayload(modelChoice.model, post, prompt.systemInstruction, prompt.userText, settings);
-  const url = `${GEMINI_ENDPOINT_BASE}/${modelChoice.model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const payload = buildOpenRouterReplyPayload(model, post, prompt.systemInstruction, prompt.userText, settings);
   const response = await fetchWithRetry(
-    url,
+    OPENROUTER_CHAT_ENDPOINT,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: buildOpenRouterHeaders(apiKey),
       body: JSON.stringify(payload)
     },
     1
   );
 
   if (!response.ok) {
-    await throwProviderError(response, modelChoice.provider);
+    await throwProviderError(response);
   }
 
   const data = await response.json();
-  return extractGeminiText(data);
+  return extractOpenRouterText(data);
 }
 
-async function generateForDrafts(brainDump, context, settings, modelChoice, apiKey) {
+async function generateForDrafts(brainDump, context, settings, model, apiKey) {
   const prompt = buildDraftPrompt(brainDump, context, settings);
-
-  if (modelChoice.provider === "glm") {
-    const payload = buildGlmPayload(modelChoice.model, prompt.systemInstruction, prompt.userText, settings);
-    const response = await fetchWithRetry(
-      GLM_ENDPOINT,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`
-        },
-        body: JSON.stringify(payload)
-      },
-      1
-    );
-
-    if (!response.ok) {
-      await throwProviderError(response, modelChoice.provider);
-    }
-
-    const data = await response.json();
-    return extractGlmText(data);
-  }
-
-  const payload = buildGeminiDraftPayload(modelChoice.model, prompt.systemInstruction, prompt.userText, settings);
-  const url = `${GEMINI_ENDPOINT_BASE}/${modelChoice.model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const payload = buildOpenRouterDraftPayload(model, prompt.systemInstruction, prompt.userText, settings);
   const response = await fetchWithRetry(
-    url,
+    OPENROUTER_CHAT_ENDPOINT,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: buildOpenRouterHeaders(apiKey),
       body: JSON.stringify(payload)
     },
     1
   );
 
   if (!response.ok) {
-    await throwProviderError(response, modelChoice.provider);
+    await throwProviderError(response);
   }
 
   const data = await response.json();
-  return extractGeminiText(data);
+  return extractOpenRouterText(data);
 }
 
 function buildReplyPrompt(post, settings, userOpinion = "") {
@@ -339,7 +336,7 @@ function buildReplyPrompt(post, settings, userOpinion = "") {
     : "";
 
   const instruction = userOpinion
-    ? `Create 4 replies that articulate and express this viewpoint. Stay true to the user's opinion while varying the style and length.`
+    ? "Create 4 replies that articulate and express this viewpoint. Stay true to the user's opinion while varying the style and length."
     : `Create 4 high-quality ${label} replies tailored to the user's style. Keep wording sharp and grounded.`;
 
   const userText = [
@@ -356,33 +353,29 @@ function buildReplyPrompt(post, settings, userOpinion = "") {
   };
 }
 
-function buildGeminiReplyPayload(_model, post, systemInstruction, userText, settings) {
-  const parts = [
-    {
-      text: userText
-    }
-  ];
+function buildOpenRouterReplyPayload(model, post, systemInstruction, userText, settings) {
+  const content = [{ type: "text", text: userText }];
 
   for (const image of post.images || []) {
     if (image?.data && image?.mimeType) {
-      parts.push({
-        inline_data: {
-          mime_type: image.mimeType,
-          data: image.data
+      content.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${image.mimeType};base64,${image.data}`
         }
       });
     }
   }
 
   return {
-    system_instruction: {
-      parts: [{ text: systemInstruction }]
-    },
-    contents: [{ role: "user", parts }],
-    generationConfig: {
-      temperature: clampTemperature(settings.temperature),
-      maxOutputTokens: 700
-    }
+    model,
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: systemInstruction },
+      { role: "user", content }
+    ],
+    temperature: clampTemperature(settings.temperature),
+    max_tokens: 700
   };
 }
 
@@ -411,27 +404,10 @@ function buildDraftPrompt(brainDump, context, settings) {
   };
 }
 
-function buildGeminiDraftPayload(_model, systemInstruction, userText, settings) {
-  return {
-    system_instruction: {
-      parts: [{ text: systemInstruction }]
-    },
-    contents: [{ role: "user", parts: [{ text: userText }] }],
-    generationConfig: {
-      temperature: clampTemperature(settings.temperature),
-      maxOutputTokens: 700
-    }
-  };
-}
-
-function buildGlmPayload(model, systemInstruction, userText, settings) {
+function buildOpenRouterDraftPayload(model, systemInstruction, userText, settings) {
   return {
     model,
     response_format: { type: "json_object" },
-    // Structured reply generation does not need chain-of-thought output.
-    // Disabling thinking avoids cases where GLM spends the entire token budget
-    // in `reasoning_content` and leaves `message.content` empty.
-    thinking: { type: "disabled" },
     messages: [
       { role: "system", content: systemInstruction },
       { role: "user", content: userText }
@@ -439,6 +415,77 @@ function buildGlmPayload(model, systemInstruction, userText, settings) {
     temperature: clampTemperature(settings.temperature),
     max_tokens: 700
   };
+}
+
+function buildOpenRouterHeaders(apiKey) {
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${apiKey}`,
+    "X-Title": "Linx"
+  };
+}
+
+async function fetchOpenRouterModels(apiKey) {
+  const response = await fetchWithRetry(
+    OPENROUTER_MODELS_ENDPOINT,
+    {
+      method: "GET",
+      headers: buildOpenRouterHeaders(apiKey)
+    },
+    1
+  );
+
+  if (!response.ok) {
+    await throwProviderError(response);
+  }
+
+  const data = await response.json();
+  const list = Array.isArray(data?.data) ? data.data : [];
+
+  const normalized = list
+    .map(normalizeOpenRouterModel)
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (a.isFree !== b.isFree) {
+        return a.isFree ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+  if (!normalized.length) {
+    throw new Error("OpenRouter returned no models for this API key.");
+  }
+
+  return normalized;
+}
+
+function normalizeOpenRouterModel(raw) {
+  const id = String(raw?.id || "").trim();
+  if (!id) {
+    return null;
+  }
+
+  const name = String(raw?.name || id).trim() || id;
+  const pricingPrompt = String(raw?.pricing?.prompt || "").trim();
+  const pricingCompletion = String(raw?.pricing?.completion || "").trim();
+
+  return {
+    id,
+    name,
+    isFree: isFreePricing(pricingPrompt) && isFreePricing(pricingCompletion),
+    pricing: {
+      prompt: pricingPrompt,
+      completion: pricingCompletion
+    }
+  };
+}
+
+function isFreePricing(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    return false;
+  }
+  return /^0+(?:\.0+)?$/.test(normalized);
 }
 
 function normalizePlatform(rawPlatform) {
@@ -576,16 +623,13 @@ function isValidSystemPrompt(text) {
   return Boolean(trimmed) && trimmed.length <= MAX_SYSTEM_PROMPT_CHARS;
 }
 
-function extractGeminiText(data) {
-  return data?.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("\n") || "";
-}
-
-function extractGlmText(data) {
+function extractOpenRouterText(data) {
   const message = data?.choices?.[0]?.message;
   const content = message?.content;
   if (typeof content === "string" && content.trim()) {
     return content;
   }
+
   if (Array.isArray(content)) {
     const joined = content
       .map((item) => {
@@ -602,23 +646,10 @@ function extractGlmText(data) {
       })
       .filter(Boolean)
       .join("\n");
+
     if (joined.trim()) {
       return joined;
     }
-  }
-  if (content && typeof content === "object") {
-    try {
-      const serialized = JSON.stringify(content);
-      if (serialized.trim()) {
-        return serialized;
-      }
-    } catch (_err) {
-      // Fall through to reasoning fallback below.
-    }
-  }
-
-  if (typeof message?.reasoning_content === "string" && message.reasoning_content.trim()) {
-    return message.reasoning_content;
   }
 
   return "";
@@ -849,56 +880,88 @@ function truncateMessage(text, maxChars) {
 }
 
 async function getSettings() {
-  const [stored, localStored] = await Promise.all([
+  const [storedSync, storedLocal] = await Promise.all([
     chrome.storage.sync.get({
-      apiKey: "",
-      geminiApiKey: "",
-      glmApiKey: "",
+      openrouterApiKey: "",
       replyModel: DEFAULT_MODEL,
       draftModel: DEFAULT_MODEL,
+      showPaidModels: false,
       customInstructions: "",
       temperature: DEFAULT_TEMPERATURE,
       profileVersion: 0,
+      providerVersion: 0,
       onboardingCompleted: false,
       onboardingStep: 0,
       profileAnswers: getDefaultProfileAnswers(),
-      systemPrompts: getDefaultSystemPrompts()
+      systemPrompts: getDefaultSystemPrompts(),
+      apiKey: "",
+      geminiApiKey: "",
+      glmApiKey: ""
     }),
     chrome.storage.local.get({
-      systemPrompts: getDefaultSystemPrompts()
+      systemPrompts: getDefaultSystemPrompts(),
+      openrouterModelsCache: { models: [], fetchedAt: 0 }
     })
   ]);
 
-  const previousVersion = Number(stored.profileVersion || 0);
-  const needsMigration = previousVersion !== PROFILE_VERSION;
-
   const normalized = {
-    ...stored,
+    ...storedSync,
     profileVersion: PROFILE_VERSION,
-    onboardingCompleted: needsMigration ? false : Boolean(stored.onboardingCompleted),
-    onboardingStep: Number.isFinite(Number(stored.onboardingStep)) ? Number(stored.onboardingStep) : 0,
-    profileAnswers: sanitizeProfileAnswers(stored.profileAnswers),
-    systemPrompts: sanitizeSystemPrompts(localStored?.systemPrompts || stored.systemPrompts)
+    providerVersion: PROVIDER_VERSION,
+    openrouterApiKey: String(storedSync.openrouterApiKey || "").trim(),
+    replyModel: parseModelChoice(storedSync.replyModel, DEFAULT_MODEL),
+    draftModel: parseModelChoice(storedSync.draftModel, DEFAULT_MODEL),
+    showPaidModels: Boolean(storedSync.showPaidModels),
+    onboardingCompleted: Boolean(storedSync.onboardingCompleted),
+    onboardingStep: Number.isFinite(Number(storedSync.onboardingStep)) ? Number(storedSync.onboardingStep) : 0,
+    profileAnswers: sanitizeProfileAnswers(storedSync.profileAnswers),
+    systemPrompts: sanitizeSystemPrompts(storedLocal?.systemPrompts || storedSync.systemPrompts),
+    openrouterModelsCache: sanitizeOpenRouterModelsCache(storedLocal?.openrouterModelsCache)
   };
 
-  if (!stored.geminiApiKey && stored.apiKey) {
-    normalized.geminiApiKey = stored.apiKey;
+  const syncPatch = {};
+  const syncRemove = [];
+  const localPatch = {};
+
+  if (Number(storedSync.profileVersion || 0) !== PROFILE_VERSION) {
+    syncPatch.profileVersion = PROFILE_VERSION;
   }
 
-  if (needsMigration) {
-    normalized.onboardingStep = 0;
-    await Promise.all([
-      chrome.storage.sync.set({
-        profileVersion: PROFILE_VERSION,
-        onboardingCompleted: false,
-        onboardingStep: 0,
-        profileAnswers: normalized.profileAnswers
-      }),
-      chrome.storage.local.set({
-        systemPrompts: getDefaultSystemPrompts()
-      })
-    ]);
-    normalized.systemPrompts = getDefaultSystemPrompts();
+  if (Number(storedSync.providerVersion || 0) !== PROVIDER_VERSION) {
+    Object.assign(syncPatch, {
+      providerVersion: PROVIDER_VERSION,
+      openrouterApiKey: "",
+      replyModel: DEFAULT_MODEL,
+      draftModel: DEFAULT_MODEL,
+      showPaidModels: false
+    });
+    syncRemove.push("apiKey", "geminiApiKey", "glmApiKey");
+  }
+
+  if (!storedLocal?.systemPrompts || Number(storedSync.profileVersion || 0) !== PROFILE_VERSION) {
+    localPatch.systemPrompts = normalizeSystemPromptsForStorage(normalized.systemPrompts);
+  }
+
+  if (!storedLocal?.openrouterModelsCache || Number(storedSync.providerVersion || 0) !== PROVIDER_VERSION) {
+    localPatch.openrouterModelsCache = { models: [], fetchedAt: 0 };
+    normalized.openrouterModelsCache = { models: [], fetchedAt: 0 };
+  }
+
+  if (Object.keys(syncPatch).length) {
+    await chrome.storage.sync.set(syncPatch);
+  }
+  if (syncRemove.length) {
+    await chrome.storage.sync.remove(syncRemove);
+  }
+  if (Object.keys(localPatch).length) {
+    await chrome.storage.local.set(localPatch);
+  }
+
+  if (syncPatch.openrouterApiKey === "") {
+    normalized.openrouterApiKey = "";
+    normalized.replyModel = DEFAULT_MODEL;
+    normalized.draftModel = DEFAULT_MODEL;
+    normalized.showPaidModels = false;
   }
 
   return normalized;
@@ -970,41 +1033,50 @@ function sanitizeSystemPrompts(raw) {
   };
 }
 
+function normalizeSystemPromptsForStorage(prompts) {
+  return {
+    reply: {
+      linkedin: { ...prompts.reply.linkedin },
+      x: { ...prompts.reply.x }
+    },
+    draft: {
+      linkedin: { ...prompts.draft.linkedin },
+      x: { ...prompts.draft.x }
+    }
+  };
+}
+
+function sanitizeOpenRouterModelsCache(raw) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const list = Array.isArray(source.models) ? source.models : [];
+  const models = list
+    .map((item) => normalizeOpenRouterModel(item))
+    .filter(Boolean);
+  const fetchedAt = Number(source.fetchedAt);
+
+  return {
+    models,
+    fetchedAt: Number.isFinite(fetchedAt) ? fetchedAt : 0
+  };
+}
+
 function parseModelChoice(rawValue, fallbackValue) {
-  const value = String(rawValue || fallbackValue || DEFAULT_MODEL);
-  if (!value.includes(":")) {
-    return { provider: "gemini", model: value.trim() || "gemini-3-flash-preview" };
-  }
-  const [providerRaw, ...modelParts] = value.split(":");
-  const provider = providerRaw === "glm" ? "glm" : "gemini";
-  const model = modelParts.join(":").trim();
-
-  if (!model) {
-    const [fallbackProvider, ...fallbackModelParts] = String(fallbackValue || DEFAULT_MODEL).split(":");
-    return {
-      provider: fallbackProvider === "glm" ? "glm" : "gemini",
-      model: fallbackModelParts.join(":")
-    };
-  }
-
-  return { provider, model };
+  const value = String(rawValue || fallbackValue || DEFAULT_MODEL).trim();
+  return value;
 }
 
-function getApiKeyForProvider(settings, provider) {
-  if (provider === "glm") {
-    return String(settings.glmApiKey || "").trim();
-  }
-  return String(settings.geminiApiKey || settings.apiKey || "").trim();
-}
-
-function ensureApiKey(apiKey, provider) {
-  if (apiKey) {
+function ensureApiKey(apiKey) {
+  if (String(apiKey || "").trim()) {
     return;
   }
-  if (provider === "glm") {
-    throw new Error("GLM API key is missing. Add it in extension settings.");
+  throw new Error("OpenRouter API key is missing. Add it in extension settings.");
+}
+
+function ensureModelSelected(model) {
+  if (String(model || "").trim()) {
+    return;
   }
-  throw new Error("Gemini API key is missing. Add it in extension settings.");
+  throw new Error("Select an OpenRouter model in extension settings.");
 }
 
 async function fetchWithRetry(url, init, retriesOn429 = 1) {
@@ -1018,16 +1090,13 @@ async function fetchWithRetry(url, init, retriesOn429 = 1) {
   return response;
 }
 
-async function throwProviderError(response, provider) {
+async function throwProviderError(response) {
   const errorBody = await safeJson(response);
   const messageText =
     errorBody?.error?.message ||
-    `${providerDisplayName(provider)} request failed (${response.status}). Check your key and network.`;
+    errorBody?.message ||
+    `OpenRouter request failed (${response.status}). Check your key and network.`;
   throw new Error(messageText);
-}
-
-function providerDisplayName(provider) {
-  return provider === "glm" ? "GLM" : "Gemini";
 }
 
 async function enforceRateLimit() {

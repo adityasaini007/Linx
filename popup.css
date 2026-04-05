@@ -161,6 +161,27 @@ input[type="range"] {
   color: #93c5fd;
 }
 
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox-row input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.checkbox-row > span {
+  margin: 0;
+}
+
+.helper-text {
+  margin: 8px 0 10px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
 .hidden {
   display: none;
 }

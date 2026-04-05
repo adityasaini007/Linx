@@ -2,7 +2,7 @@
 
 **Linx - AI Reply & Post Assistant for LinkedIn & X**
 
-*Last Updated: March 24, 2026*
+*Last Updated: April 5, 2026*
 
 ---
 
@@ -22,10 +22,11 @@ All data is stored **exclusively on your device** using Chrome's secure storage 
 
 | Data Type | Storage Location | Purpose |
 |-----------|------------------|---------|
-| API Keys | `chrome.storage.sync` | Authenticate with AI providers (Gemini, GLM) |
+| API Key | `chrome.storage.sync` | Authenticate with OpenRouter |
 | Profile Answers | `chrome.storage.sync` | Personalize AI-generated content |
 | System Prompts | `chrome.storage.local` | Customize reply/draft generation |
 | Model Preferences | `chrome.storage.sync` | Remember your model and temperature settings |
+| OpenRouter Model Cache | `chrome.storage.local` | Store fetched model list and free/paid labels |
 
 ### What We Do NOT Collect
 
@@ -39,27 +40,26 @@ All data is stored **exclusively on your device** using Chrome's secure storage 
 
 ## Data Sharing with Third Parties
 
-### AI API Providers
+### AI API Provider
 
-When you click "AI Reply" or "AI Draft", the following data is sent to your chosen AI provider:
+When you click "AI Reply" or "AI Draft", the following data is sent to OpenRouter:
 
-**Sent to Google Gemini or GLM APIs:**
+**Sent to OpenRouter API:**
 - The text content of the post you're replying to
 - Author name/handle of the post (for context)
 - Images attached to the post (if any, up to 2)
 - Your personalized system prompt (based on your profile answers)
 - Your "brain dump" text (for draft generation)
 
-**Your API key** is sent directly to the AI provider to authenticate requests. We never see or store your API key on any server.
+**Your API key** is sent directly to OpenRouter to authenticate requests. We never see or store your API key on any server.
 
-### AI Providers Used
+### AI Provider Used
 
 | Provider | Endpoint | Privacy Policy |
 |----------|----------|----------------|
-| Google Gemini | `generativelanguage.googleapis.com` | [Google AI Privacy](https://ai.google.dev/terms) |
-| GLM (Zhipu AI) | `api.z.ai` | [Zhipu AI Terms](https://open.bigmodel.cn/dev/howuse/agreement) |
+| OpenRouter | `openrouter.ai` | [OpenRouter Privacy & Terms](https://openrouter.ai/terms) |
 
-**Important**: Data sent to AI providers is subject to their respective privacy policies. We recommend reviewing their terms before use.
+**Important**: Data sent to OpenRouter is subject to OpenRouter's privacy policy and terms. We recommend reviewing them before use.
 
 ---
 
@@ -79,8 +79,7 @@ Linx requests the following Chrome permissions:
 |--------|---------|
 | `linkedin.com`, `x.com`, `twitter.com` | Inject content scripts for AI buttons |
 | `licdn.com`, `pbs.twimg.com` | Fetch post images for AI context |
-| `generativelanguage.googleapis.com` | Google Gemini API calls |
-| `open.bigmodel.cn`, `api.z.ai` | GLM API calls |
+| `openrouter.ai` | OpenRouter API calls |
 
 ---
 

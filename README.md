@@ -10,7 +10,7 @@
 ![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen?style=for-the-badge)
 
 **You have the opinion. Linx helps you articulate it.**
-**Powered by Google Gemini & GLM.**
+**Powered by OpenRouter models.**
 
 [Features](#features) · [Installation](#installation) · [Usage](#usage) · [Configuration](#configuration) · [Privacy](#privacy) · [Contributing](#contributing)
 
@@ -123,12 +123,11 @@ Linx auto-generates tailored system prompts for each platform and mode. You can 
 
 ### Model Selection
 
-Choose your preferred AI model for replies and drafts:
+Linx fetches available models directly from OpenRouter using your API key.
 
-| Provider | Models Available |
-|----------|------------------|
-| **Google Gemini** | Gemini 3 Flash, Gemini 3.1 Flash Lite, Gemini 3.1 Pro |
-| **GLM (Zhipu AI)** | GLM-4.7, GLM-4.7 Flash |
+- **Free models by default** — safer cost control
+- **Optional paid models** — enable with a toggle (charged on your OpenRouter account)
+- **Separate model choice** for replies and post drafts
 
 Adjust **temperature** (0.0–1.5) to control creativity vs. consistency.
 
@@ -152,32 +151,22 @@ Adjust **temperature** (0.0–1.5) to control creativity vs. consistency.
    - Click **Load unpacked**
    - Select the `linx` folder
 
-4. **Configure API keys**
+4. **Configure API key**
    - Click the Linx icon in your toolbar
-   - Enter your Gemini and/or GLM API key
+   - Enter your OpenRouter API key
    - Complete onboarding for personalized replies
 
 ### Getting API Keys
 
 <details>
-<summary><strong>Google Gemini API Key</strong></summary>
+<summary><strong>OpenRouter API Key</strong></summary>
 
-1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
-2. Click "Create API Key"
-3. Copy the key (starts with `AIza...`)
+1. Go to [OpenRouter](https://openrouter.ai/)
+2. Create or open your account API Keys page
+3. Generate a key
 4. Paste into Linx settings
 
-**Free tier**: 60 requests/minute, sufficient for personal use.
-
-</details>
-
-<details>
-<summary><strong>GLM API Key</strong></summary>
-
-1. Go to [Zhipu AI Platform](https://open.bigmodel.cn/)
-2. Sign up and navigate to API Keys
-3. Create a new key
-4. Paste into Linx settings
+Use free models by default in Linx, or enable paid models when needed.
 
 </details>
 
@@ -219,10 +208,10 @@ Click the **Linx icon** in your Chrome toolbar to access settings:
 
 | Setting | Description |
 |---------|-------------|
-| **Gemini API Key** | Your Google AI Studio API key |
-| **GLM API Key** | Your Zhipu AI API key |
+| **OpenRouter API Key** | Your OpenRouter API key |
 | **Reply Model** | Model used for generating replies |
 | **Draft Model** | Model used for generating post drafts |
+| **Show Paid Models** | Toggle to include paid models in selectors |
 | **Temperature** | Creativity level (0.0 = focused, 1.5 = creative) |
 
 ### System Prompts
@@ -268,7 +257,7 @@ linx/
                                                           │
                                                           ▼
                                                  ┌─────────────────┐
-                                                 │  Gemini / GLM   │
+                                                 │   OpenRouter    │
                                                  │   (AI Models)   │
                                                  └─────────────────┘
                                                           │
@@ -310,8 +299,7 @@ Read the full [Privacy Policy](PRIVACY.md).
 |--------|--------|
 | `linkedin.com`, `x.com` | Content script injection |
 | `licdn.com`, `pbs.twimg.com` | Fetch post images |
-| `generativelanguage.googleapis.com` | Gemini API |
-| `open.bigmodel.cn`, `api.z.ai` | GLM API |
+| `openrouter.ai` | OpenRouter API |
 
 ---
 
@@ -363,7 +351,7 @@ cd linx
 <summary><strong>API errors or rate limits</strong></summary>
 
 - Verify your API key is correct
-- Check your API provider's usage dashboard
+- Check OpenRouter usage/credits dashboard
 - Wait a few seconds and try again (rate limiting)
 - Try a different model
 
@@ -398,7 +386,7 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
-- **Google Gemini** and **Zhipu AI** for AI APIs
+- **OpenRouter** for unified model access
 - The open source community for inspiration
 - Early users for feedback and bug reports
 
