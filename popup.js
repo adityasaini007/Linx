@@ -3,6 +3,7 @@ const PROVIDER_VERSION = 1;
 const DEFAULT_MODEL = "";
 const DEFAULT_TEMPERATURE = 0.7;
 const MAX_SYSTEM_PROMPT_CHARS = 9000;
+const OPENROUTER_MODELS_ENDPOINT = "https://openrouter.ai/api/v1/models";
 
 const DEFAULT_PROFILE_ANSWERS = {
   displayName: "the user",
@@ -374,7 +375,19 @@ async function fetchModels({ forceRefresh, setStatusMessage }) {
     });
 
     if (!response?.ok) {
-      throw new Error(response?.error || "Could not fetch OpenRouter models.");
+      const message = String(response?.error || "Could not fetch OpenRouter models.");
+      if (message === "Unsupported request type.") {
+        const payload = await fetchModelsDirect(state.openrouterApiKey);
+        state.openrouterModelsCache = payload;
+        await chrome.storage.local.set({ openrouterModelsCache: payload });
+        renderModelOptions();
+        setModelsState("Fetched models directly. Reload extension once to refresh background worker.");
+        if (setStatusMessage) {
+          setStatus("Fetched models directly. Please reload the extension.");
+        }
+        return;
+      }
+      throw new Error(message);
     }
 
     const payload = sanitizeOpenRouterModelsCache(response.data);
@@ -408,6 +421,77 @@ async function fetchModels({ forceRefresh, setStatusMessage }) {
       setStatus(error.message || "Could not fetch OpenRouter models.");
     }
   }
+}
+
+async function fetchModelsDirect(apiKey) {
+  const response = await fetch(OPENROUTER_MODELS_ENDPOINT, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+      "X-Title": "Linx"
+    }
+  });
+
+  if (!response.ok) {
+    let message = `OpenRouter request failed (${response.status}).`;
+    try {
+      const data = await response.json();
+      message = data?.error?.message || data?.message || message;
+    } catch (_err) {
+      // Use fallback message.
+    }
+    throw new Error(message);
+  }
+
+  const data = await response.json();
+  const list = Array.isArray(data?.data) ? data.data : [];
+  const models = list
+    .map((item) => normalizeOpenRouterModelFromApi(item))
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (a.isFree !== b.isFree) {
+        return a.isFree ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+  if (!models.length) {
+    throw new Error("OpenRouter returned no models for this API key.");
+  }
+
+  return {
+    models,
+    fetchedAt: Date.now()
+  };
+}
+
+function normalizeOpenRouterModelFromApi(raw) {
+  const id = String(raw?.id || "").trim();
+  if (!id) {
+    return null;
+  }
+
+  const prompt = String(raw?.pricing?.prompt || "").trim();
+  const completion = String(raw?.pricing?.completion || "").trim();
+
+  return {
+    id,
+    name: String(raw?.name || id).trim() || id,
+    isFree: isFreePricing(prompt) && isFreePricing(completion),
+    pricing: {
+      prompt,
+      completion
+    }
+  };
+}
+
+function isFreePricing(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    return false;
+  }
+  return /^0+(?:\.0+)?$/.test(normalized);
 }
 
 function renderModelOptions() {

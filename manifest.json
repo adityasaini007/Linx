@@ -1,12 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Linx",
-  "description": "AI-powered reply suggestion tool for LinkedIn and X. You have the opinion, Linx helps you articulate it.",
+  "description": "An articulator for LinkedIn and X. Linx only turns your own thoughts into clearer replies and posts.",
   "version": "1.0.0",
   "permissions": [
-    "storage",
-    "activeTab",
-    "scripting"
+    "storage"
   ],
   "host_permissions": [
     "https://x.com/*",
