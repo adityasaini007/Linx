@@ -59,8 +59,8 @@ function injectButtonsInScope(root) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = BUTTON_CLASS;
-    btn.textContent = "✦ AI Reply";
-    btn.title = `Generate ${platformLabel()} replies`;
+    btn.textContent = "✦ Articulate Reply";
+    btn.title = `Articulate your ${platformLabel()} reply`;
     btn.addEventListener("click", () => onAiReplyClick(post, btn));
     actionBar.appendChild(btn);
 
@@ -91,8 +91,8 @@ function injectComposerButtonsInScope(root) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = COMPOSE_BUTTON_CLASS;
-    btn.textContent = "✦ AI Draft";
-    btn.title = `Generate ${platformLabel()} post drafts from brain dump`;
+    btn.textContent = "✦ Articulate Post";
+    btn.title = `Turn your thoughts into ${platformLabel()} post drafts`;
     btn.addEventListener("click", () => onAiDraftClick(postButton, btn));
 
     buttonSlot.insertBefore(btn, postButton);
@@ -233,14 +233,11 @@ async function onAiDraftClick(postButton, button) {
     const refs = getModalRefs();
     refs.composeInput.value = brainDump;
 
-    if (!brainDump) {
-      state.drafts = [];
-      refs.cards.innerHTML = "";
-      setStatus("Paste a rough brain dump, then click Generate drafts.");
-      return;
-    }
-
-    await generateDrafts(brainDump);
+    state.drafts = [];
+    refs.cards.innerHTML = "";
+    setStatus(brainDump
+      ? "Review or refine your thoughts, then click Generate drafts."
+      : "Add your thoughts first, then click Generate drafts.");
   } catch (error) {
     setStatus(error.message || "Could not generate drafts. Try again.");
     setLoading(false);
@@ -753,24 +750,23 @@ function getModalRefs() {
           <div id="lucian-head">
             <div>
               <p id="lucian-kicker">Linx</p>
-              <h2 id="lucian-title">Smart replies for this post</h2>
+              <h2 id="lucian-title">Articulate your take for this post</h2>
             </div>
             <button id="lucian-close" class="lucian-btn secondary">Close</button>
           </div>
           <div id="lucian-body">
             <p id="lucian-status"></p>
-            <div id="lucian-loading">Generating replies...</div>
+            <div id="lucian-loading">Generating options...</div>
             <div id="lucian-opinion-wrap">
-              <label id="lucian-opinion-label" for="lucian-opinion-input">What's your take? (optional)</label>
-              <textarea id="lucian-opinion-input" placeholder="Share your angle, opinion, or reaction..."></textarea>
+              <label id="lucian-opinion-label" for="lucian-opinion-input">What do you want to say?</label>
+              <textarea id="lucian-opinion-input" placeholder="Share your angle, opinion, or reaction before Linx articulates it..."></textarea>
               <div id="lucian-opinion-actions">
-                <button id="lucian-skip-btn" class="lucian-btn secondary">Skip</button>
-                <button id="lucian-generate-opinion-btn" class="lucian-btn primary">Generate</button>
+                <button id="lucian-generate-opinion-btn" class="lucian-btn primary">Articulate replies</button>
               </div>
             </div>
             <div id="lucian-compose-wrap">
-              <label id="lucian-compose-label" for="lucian-compose-input">Brain dump for the post</label>
-              <textarea id="lucian-compose-input" placeholder="Dump raw thoughts, points, and opinions here..."></textarea>
+              <label id="lucian-compose-label" for="lucian-compose-input">Your thoughts for the post</label>
+              <textarea id="lucian-compose-input" placeholder="Dump raw thoughts, points, and opinions here before Linx shapes them..."></textarea>
               <div id="lucian-compose-actions">
                 <button id="lucian-generate-drafts" class="lucian-btn primary">Generate drafts</button>
               </div>
@@ -789,7 +785,6 @@ function getModalRefs() {
     shadow.getElementById("lucian-close").addEventListener("click", closeModal);
     shadow.getElementById("lucian-regenerate").addEventListener("click", onRegenerateClick);
     shadow.getElementById("lucian-generate-drafts").addEventListener("click", onGenerateDraftsClick);
-    shadow.getElementById("lucian-skip-btn").addEventListener("click", onSkipGenerate);
     shadow.getElementById("lucian-generate-opinion-btn").addEventListener("click", onGenerateWithOpinion);
     shadow.getElementById("lucian-different-angle").addEventListener("click", onTryDifferentAngle);
   }
@@ -821,7 +816,7 @@ function closeModal() {
   refs.panel.classList.remove("open");
 }
 
-function setLoading(isLoading, label = "Generating replies...") {
+function setLoading(isLoading, label = "Generating options...") {
   const refs = getModalRefs();
   refs.loading.textContent = label;
   refs.loading.classList.toggle("show", isLoading);
@@ -837,8 +832,8 @@ function setPanelMode(mode) {
   state.mode = mode;
 
   if (mode === "compose") {
-    refs.kicker.textContent = "Linx Draft AI";
-    refs.title.textContent = `Turn brain dump into ${platformLabel()} post drafts`;
+    refs.kicker.textContent = "Linx Articulator";
+    refs.title.textContent = `Turn your thoughts into ${platformLabel()} post drafts`;
     refs.regenerate.textContent = "Regenerate drafts";
     refs.composeWrap.classList.add("open");
     refs.opinionWrap.classList.remove("open");
@@ -846,8 +841,8 @@ function setPanelMode(mode) {
     return;
   }
 
-  refs.kicker.textContent = "Linx";
-  refs.title.textContent = `Smart ${platformLabel()} replies for this post`;
+  refs.kicker.textContent = "Linx Articulator";
+  refs.title.textContent = `Turn your take into ${platformLabel()} replies`;
   refs.regenerate.textContent = "Regenerate";
   refs.composeWrap.classList.remove("open");
 }
@@ -946,22 +941,27 @@ async function onRegenerateClick() {
   }
 
   if (!state.currentPost) {
-    setStatus("Open a post and click AI Reply first.");
+    setStatus("Open a post and click Articulate Reply first.");
+    return;
+  }
+
+  if (!state.userOpinion.trim()) {
+    setStatus("Add your take first.");
+    showOpinionInput(true);
     return;
   }
 
   await generateReplies();
 }
 
-async function onSkipGenerate() {
-  state.userOpinion = "";
-  showOpinionInput(false);
-  await generateReplies();
-}
-
 async function onGenerateWithOpinion() {
   const refs = getModalRefs();
   state.userOpinion = refs.opinionInput.value.trim();
+  if (!state.userOpinion) {
+    setStatus("Add your take first.");
+    refs.opinionInput.focus();
+    return;
+  }
   showOpinionInput(false);
   await generateReplies();
 }
@@ -990,7 +990,13 @@ function showDifferentAngleButton(visible) {
 
 async function generateReplies() {
   if (!state.currentPost) {
-    setStatus("Open a post and click AI Reply first.");
+    setStatus("Open a post and click Articulate Reply first.");
+    return;
+  }
+
+  if (!state.userOpinion.trim()) {
+    setStatus("Add your take first.");
+    showOpinionInput(true);
     return;
   }
 

@@ -190,6 +190,9 @@ async function handleGenerateReplies(message) {
   }
 
   const userOpinion = String(message?.userOpinion || "").trim();
+  if (!userOpinion) {
+    throw new Error("Add your take before generating replies.");
+  }
   const rawText = await generateForReplies(post, settings, model, settings.openrouterApiKey, userOpinion);
   const replies = coerceStringArray(rawText, "replies");
 
@@ -331,13 +334,8 @@ function buildReplyPrompt(post, settings, userOpinion = "") {
     mode: "reply"
   });
 
-  const opinionLine = userOpinion
-    ? `\nUser's angle/opinion: ${userOpinion}`
-    : "";
-
-  const instruction = userOpinion
-    ? "Create 4 replies that articulate and express this viewpoint. Stay true to the user's opinion while varying the style and length."
-    : `Create 4 high-quality ${label} replies tailored to the user's style. Keep wording sharp and grounded.`;
+  const opinionLine = `User's thoughts/opinion: ${userOpinion}`;
+  const instruction = "Create 4 replies that articulate and express this viewpoint. Stay true to the user's opinion while varying the style and length.";
 
   const userText = [
     `Platform: ${label}`,
