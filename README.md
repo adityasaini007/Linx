@@ -12,6 +12,8 @@
 **You have the opinion. Linx helps you articulate it.**
 **Powered by OpenRouter models.**
 
+[Download on Chrome Web Store](https://chromewebstore.google.com/detail/linx/eebgaadcigkokflpehmdhkifndodclei)
+
 [Features](#features) · [Installation](#installation) · [Usage](#usage) · [Configuration](#configuration) · [Privacy](#privacy) · [Contributing](#contributing)
 
 ---
@@ -134,6 +136,10 @@ Adjust **temperature** (0.0–1.5) to control creativity vs. consistency.
 ---
 
 ## Installation
+
+### Chrome Web Store
+
+Install Linx directly from the [Chrome Web Store](https://chromewebstore.google.com/detail/linx/eebgaadcigkokflpehmdhkifndodclei).
 
 ### From Source (Developer Mode)
 
