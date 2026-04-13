@@ -18,11 +18,11 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "linx@extension",
-      "strict_min_version": "109.0"
+      "strict_min_version": "128.0"
     }
   },
   "background": {
-    "scripts": ["browser-polyfill.js", "background.js"]
+    "service_worker": "background.js"
   },
   "action": {
     "default_title": "Linx",
