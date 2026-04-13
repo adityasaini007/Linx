@@ -1,7 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const SUPPORTED_BROWSERS = ['chrome'];
+const SUPPORTED_BROWSERS = ['chrome', 'firefox'];
+const POLYFILL_DIR = path.join('node_modules', 'webextension-polyfill', 'dist');
+const POLYFILL_SRC = path.join(POLYFILL_DIR, 'browser-polyfill.js');
+const POLYFILL_MAP_SRC = path.join(POLYFILL_DIR, 'browser-polyfill.js.map');
 
 function clean(dir) {
   if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true });
@@ -33,6 +36,8 @@ function build(browser) {
 
   clean(outDir);
   copyDir('src', outDir);
+  fs.copyFileSync(POLYFILL_SRC, path.join(outDir, 'browser-polyfill.js'));
+  fs.copyFileSync(POLYFILL_MAP_SRC, path.join(outDir, 'browser-polyfill.js.map'));
   fs.copyFileSync(manifestPath, path.join(outDir, 'manifest.json'));
 
   console.log(`✓ ${browser} done`);
