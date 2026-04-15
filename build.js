@@ -31,13 +31,23 @@ function build(browser) {
     process.exit(1);
   }
 
+  if (!fs.existsSync(POLYFILL_SRC)) {
+    console.error(
+      `Error: Required polyfill not found at ${POLYFILL_SRC}. ` +
+      'Make sure dependencies are installed (for example, run "npm install").'
+    );
+    process.exit(1);
+  }
+
   const outDir = path.join('dist', browser);
   console.log(`Building ${browser} → ${outDir}/`);
 
   clean(outDir);
   copyDir('src', outDir);
   fs.copyFileSync(POLYFILL_SRC, path.join(outDir, 'browser-polyfill.js'));
-  fs.copyFileSync(POLYFILL_MAP_SRC, path.join(outDir, 'browser-polyfill.js.map'));
+  if (fs.existsSync(POLYFILL_MAP_SRC)) {
+    fs.copyFileSync(POLYFILL_MAP_SRC, path.join(outDir, 'browser-polyfill.js.map'));
+  }
   fs.copyFileSync(manifestPath, path.join(outDir, 'manifest.json'));
 
   console.log(`✓ ${browser} done`);
