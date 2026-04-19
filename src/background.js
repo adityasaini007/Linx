@@ -70,7 +70,7 @@ If it sounds like a quick message in a Discord server or group chat, you're on t
 
 let lastGenerateAt = 0;
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message?.type) {
     sendResponse({ ok: false, error: "Unknown request type." });
     return;
@@ -157,7 +157,7 @@ async function handleFetchOpenRouterModels(message) {
       models,
       fetchedAt: Date.now()
     };
-    await chrome.storage.local.set({ openrouterModelsCache: payload });
+    await browser.storage.local.set({ openrouterModelsCache: payload });
     return {
       ...payload,
       fromCache: false,
@@ -879,7 +879,7 @@ function truncateMessage(text, maxChars) {
 
 async function getSettings() {
   const [storedSync, storedLocal] = await Promise.all([
-    chrome.storage.sync.get({
+    browser.storage.sync.get({
       openrouterApiKey: "",
       replyModel: DEFAULT_MODEL,
       draftModel: DEFAULT_MODEL,
@@ -896,7 +896,7 @@ async function getSettings() {
       geminiApiKey: "",
       glmApiKey: ""
     }),
-    chrome.storage.local.get({
+    browser.storage.local.get({
       systemPrompts: getDefaultSystemPrompts(),
       openrouterModelsCache: { models: [], fetchedAt: 0 }
     })
@@ -946,13 +946,13 @@ async function getSettings() {
   }
 
   if (Object.keys(syncPatch).length) {
-    await chrome.storage.sync.set(syncPatch);
+    await browser.storage.sync.set(syncPatch);
   }
   if (syncRemove.length) {
-    await chrome.storage.sync.remove(syncRemove);
+    await browser.storage.sync.remove(syncRemove);
   }
   if (Object.keys(localPatch).length) {
-    await chrome.storage.local.set(localPatch);
+    await browser.storage.local.set(localPatch);
   }
 
   if (syncPatch.openrouterApiKey === "") {

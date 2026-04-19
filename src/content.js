@@ -1366,8 +1366,8 @@ function isElementVisible(element) {
 
 function sendRuntimeMessage(payload) {
   return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(payload, (response) => {
-      const runtimeError = chrome.runtime.lastError;
+    browser.runtime.sendMessage(payload, (response) => {
+      const runtimeError = browser.runtime.lastError;
       if (runtimeError) {
         reject(new Error(runtimeError.message));
         return;

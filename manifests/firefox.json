@@ -15,9 +15,14 @@
     "https://openrouter.ai/*",
     "https://pbs.twimg.com/*"
   ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "linx@extension",
+      "strict_min_version": "128.0"
+    }
+  },
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
   "action": {
     "default_title": "Linx",
@@ -42,6 +47,7 @@
         "*://linkedin.com/*"
       ],
       "js": [
+        "browser-polyfill.js",
         "content.js"
       ],
       "css": [

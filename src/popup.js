@@ -117,8 +117,8 @@ init();
 
 async function init() {
   const [storedSync, storedLocal] = await Promise.all([
-    chrome.storage.sync.get(DEFAULTS),
-    chrome.storage.local.get({
+    browser.storage.sync.get(DEFAULTS),
+    browser.storage.local.get({
       systemPrompts: DEFAULT_SYSTEM_PROMPTS,
       openrouterModelsCache: DEFAULT_OPENROUTER_MODELS_CACHE
     })
@@ -211,7 +211,7 @@ async function migrateAndNormalize(stored, localStored) {
     normalized.draftModel = DEFAULT_MODEL;
     normalized.showPaidModels = false;
 
-    await chrome.storage.sync.remove(["apiKey", "geminiApiKey", "glmApiKey"]);
+    await browser.storage.sync.remove(["apiKey", "geminiApiKey", "glmApiKey"]);
 
     localPatch.openrouterModelsCache = DEFAULT_OPENROUTER_MODELS_CACHE;
     normalized.openrouterModelsCache = sanitizeOpenRouterModelsCache(DEFAULT_OPENROUTER_MODELS_CACHE);
@@ -226,11 +226,11 @@ async function migrateAndNormalize(stored, localStored) {
   }
 
   if (Object.keys(syncPatch).length) {
-    await chrome.storage.sync.set(syncPatch);
+    await browser.storage.sync.set(syncPatch);
   }
 
   if (Object.keys(localPatch).length) {
-    await chrome.storage.local.set(localPatch);
+    await browser.storage.local.set(localPatch);
   }
 
   return normalized;
@@ -304,7 +304,7 @@ async function onSaveSettings() {
   };
 
   try {
-    await chrome.storage.sync.set(payload);
+    await browser.storage.sync.set(payload);
 
     state.openrouterApiKey = openrouterApiKey;
     state.showPaidModels = showPaidModels;
@@ -314,8 +314,8 @@ async function onSaveSettings() {
       state.replyModel = DEFAULT_MODEL;
       state.draftModel = DEFAULT_MODEL;
       await Promise.all([
-        chrome.storage.sync.set({ replyModel: DEFAULT_MODEL, draftModel: DEFAULT_MODEL }),
-        chrome.storage.local.set({ openrouterModelsCache: DEFAULT_OPENROUTER_MODELS_CACHE })
+        browser.storage.sync.set({ replyModel: DEFAULT_MODEL, draftModel: DEFAULT_MODEL }),
+        browser.storage.local.set({ openrouterModelsCache: DEFAULT_OPENROUTER_MODELS_CACHE })
       ]);
       renderModelOptions();
       setModelsState("Add an OpenRouter API key to load available models.");
@@ -345,7 +345,7 @@ async function onTogglePaidModels() {
   renderModelOptions();
 
   try {
-    await chrome.storage.sync.set({ showPaidModels: state.showPaidModels });
+    await browser.storage.sync.set({ showPaidModels: state.showPaidModels });
     setStatus(state.showPaidModels ? "Paid models enabled." : "Showing free models only.");
   } catch (_error) {
     setStatus("Could not update model filter.");
@@ -357,7 +357,7 @@ async function onModelSelectionChange() {
   state.draftModel = refs.draftModelInput.value || DEFAULT_MODEL;
 
   try {
-    await chrome.storage.sync.set({
+    await browser.storage.sync.set({
       replyModel: state.replyModel,
       draftModel: state.draftModel
     });
@@ -368,7 +368,7 @@ async function onModelSelectionChange() {
 
 async function fetchModels({ forceRefresh, setStatusMessage }) {
   try {
-    const response = await chrome.runtime.sendMessage({
+    const response = await browser.runtime.sendMessage({
       type: "FETCH_OPENROUTER_MODELS",
       apiKey: state.openrouterApiKey,
       forceRefresh
@@ -379,7 +379,7 @@ async function fetchModels({ forceRefresh, setStatusMessage }) {
       if (message === "Unsupported request type.") {
         const payload = await fetchModelsDirect(state.openrouterApiKey);
         state.openrouterModelsCache = payload;
-        await chrome.storage.local.set({ openrouterModelsCache: payload });
+        await browser.storage.local.set({ openrouterModelsCache: payload });
         renderModelOptions();
         setModelsState("Fetched models directly. Reload extension once to refresh background worker.");
         if (setStatusMessage) {
@@ -393,7 +393,7 @@ async function fetchModels({ forceRefresh, setStatusMessage }) {
     const payload = sanitizeOpenRouterModelsCache(response.data);
     state.openrouterModelsCache = payload;
 
-    await chrome.storage.local.set({ openrouterModelsCache: payload });
+    await browser.storage.local.set({ openrouterModelsCache: payload });
 
     renderModelOptions();
 
@@ -523,7 +523,7 @@ function renderModelOptions() {
   state.replyModel = refs.replyModelInput.value;
   state.draftModel = refs.draftModelInput.value;
 
-  chrome.storage.sync.set({
+  browser.storage.sync.set({
     replyModel: state.replyModel,
     draftModel: state.draftModel
   }).catch(() => {
@@ -573,7 +573,7 @@ async function onSaveCoreAnswers() {
   state.onboardingStep = wasCompleted ? 2 : 1;
 
   try {
-    await chrome.storage.sync.set({
+    await browser.storage.sync.set({
       profileAnswers: answers,
       onboardingStep: state.onboardingStep,
       onboardingCompleted: wasCompleted,
@@ -602,13 +602,13 @@ async function onCompleteOnboarding(skipAdvanced) {
     state.onboardingStep = skipAdvanced ? 1 : 2;
 
     await Promise.all([
-      chrome.storage.sync.set({
+      browser.storage.sync.set({
         profileVersion: PROFILE_VERSION,
         profileAnswers: answers,
         onboardingCompleted: true,
         onboardingStep: state.onboardingStep
       }),
-      chrome.storage.local.set({
+      browser.storage.local.set({
         systemPrompts: built
       })
     ]);
@@ -631,10 +631,10 @@ async function regeneratePrompts(targetPlatform) {
     state.profileAnswers = answers;
 
     await Promise.all([
-      chrome.storage.sync.set({
+      browser.storage.sync.set({
         profileAnswers: answers
       }),
-      chrome.storage.local.set({
+      browser.storage.local.set({
         systemPrompts: updated
       })
     ]);
@@ -672,7 +672,7 @@ async function onSavePromptEdits() {
   };
 
   try {
-    await chrome.storage.local.set({ systemPrompts: prompts });
+    await browser.storage.local.set({ systemPrompts: prompts });
     state.systemPrompts = prompts;
     setStatus("Prompt edits saved.");
   } catch (_error) {
@@ -681,7 +681,7 @@ async function onSavePromptEdits() {
 }
 
 async function buildSystemPrompts(answers, targetPlatform) {
-  const response = await chrome.runtime.sendMessage({
+  const response = await browser.runtime.sendMessage({
     type: "BUILD_SYSTEM_PROMPTS",
     answers,
     targetPlatform
